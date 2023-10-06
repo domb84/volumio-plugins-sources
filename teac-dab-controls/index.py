@@ -24,24 +24,24 @@ else:
 
 
 # Access button configuration values
-buttons_clk = config_data['buttons_clk']['value']
-buttons_miso = config_data['buttons_miso']['value']
-buttons_mosi = config_data['buttons_mosi']['value']
-buttons_cs = config_data['buttons_cs']['value']
-buttons_channel1 = config_data['buttons_channel1']['value']
-buttons_channel2 = config_data['buttons_channel2']['value']
+buttons_clk = int(config_data['buttons_clk']['value'])
+buttons_miso = int(config_data['buttons_miso']['value'])
+buttons_mosi = int(config_data['buttons_mosi']['value'])
+buttons_cs = int(config_data['buttons_cs']['value'])
+buttons_channel1 = int(config_data['buttons_channel1']['value'])
+buttons_channel2 = int(config_data['buttons_channel2']['value'])
 
 # Access rotary encoder configuration values
-rot_enc_A = config_data['rot_enc_A']['value']
-rot_enc_B = config_data['rot_enc_B']['value']
+rot_enc_A = int(config_data['rot_enc_A']['value'])
+rot_enc_B = int(config_data['rot_enc_B']['value'])
 
 # Access LCD display configuration values
-lcd_rs = config_data['lcd_rs']['value']
-lcd_e = config_data['lcd_e']['value']
-lcd_d4 = config_data['lcd_d4']['value']
-lcd_d5 = config_data['lcd_d5']['value']
-lcd_d6 = config_data['lcd_d6']['value']
-lcd_d7 = config_data['lcd_d7']['value']
+lcd_rs = int(config_data['lcd_rs']['value'])
+lcd_e = int(config_data['lcd_e']['value'])
+lcd_d4 = int(config_data['lcd_d4']['value'])
+lcd_d5 = int(config_data['lcd_d5']['value'])
+lcd_d6 = int(config_data['lcd_d6']['value'])
+lcd_d7 = int(config_data['lcd_d7']['value'])
 
 controlQ = queue.Queue()
 volumioQ = queue.Queue()
