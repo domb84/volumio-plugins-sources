@@ -3,6 +3,7 @@ import threading
 from includes import menu_manager, controls, volumio
 import logging
 import json
+import os
 
 logger = logging.getLogger("Teac DAB controls")
 logger.setLevel(logging.WARNING)
@@ -11,9 +12,16 @@ logging.basicConfig()
 # Specify the path to your JSON configuration file
 config_file_path = '/data/configuration/user_interface/teac-dab-controls/config.json'
 
-# Read the JSON file
-with open(config_file_path, 'r') as file:
-    config_data = json.load(file)
+if os.path.exists(config_file_path):
+    logger.info(f'The file {config_file_path} exists. Loading config.')
+    # Read the JSON file
+    with open(config_file_path, 'r') as file:
+        config_data = json.load(file)
+
+else:
+    logger.error(f'The file {config_file_path} does not exist. Exiting.')
+    exit(1)
+
 
 # Access button configuration values
 buttons_clk = config_data['buttons_clk']['value']
