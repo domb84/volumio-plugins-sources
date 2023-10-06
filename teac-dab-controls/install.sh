@@ -13,7 +13,7 @@ pip3 install git+https://github.com/domb84/rpi-lcd-menu.git
 
 sed -i "/ExecStart=/c\ExecStart=/usr/bin/pigpiod -t 0" /lib/systemd/system/pigpiod.service
 
-cp teac-dab-controls.service /lib/systemd/system/
+cp /data/plugins/user_interface/teac-dab-controls/teac-dab-controls.service /lib/systemd/system/
 
 systemctl daemon-reload -q
 
