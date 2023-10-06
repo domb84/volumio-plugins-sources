@@ -70,8 +70,8 @@ teacdabcontrols.prototype.onRestart = function() {
     var defer=libQ.defer();
 
 	try {
-		this.teacdabcontrolsServiceCmds('restart');
         this.pigpiodServiceCmds('restart');
+		this.teacdabcontrolsServiceCmds('restart');
     } catch (e) {
         const err = 'Error restarting Teac DAB controls';
         self.logger.error(err, e);
@@ -153,14 +153,16 @@ teacdabcontrols.prototype.saveOptions = function (data) {
             self.config.set(key, value);
         } else {
             self.logger.error(`${value} is not a valid number. Not saving ${key}.`);
-            this.commandRouter.pushToastMessage('fail', this.commandRouter.getI18nString("PLUGIN_NAME"), this.commandRouter.getI18nString("COMMON.CONFIGURATION_UPDATE_DESCRIPTION"));
+            this.commandRouter.pushToastMessage('fail', ("Teac DAB Controls"), this.commandRouter.getI18nString("COMMON.CONFIGURATION_UPDATE_DESCRIPTION"));
         }
     }
     }
     
-    this.commandRouter.pushToastMessage('success', this.commandRouter.getI18nString("PLUGIN_NAME"), this.commandRouter.getI18nString("COMMON.CONFIGURATION_UPDATE_DESCRIPTION"));
+    this.commandRouter.pushToastMessage('success', ("Teac DAB Controls"), this.commandRouter.getI18nString("COMMON.CONFIGURATION_UPDATE_DESCRIPTION"));
 
     self.logger.info('Teac DAB Controls - settings saved');
+    self.logger.info('Teac DAB Controls - restarting services');
+    self.onRestart()
 
     return libQ.resolve();
 };

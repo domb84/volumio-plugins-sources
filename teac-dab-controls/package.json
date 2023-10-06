@@ -1,6 +1,6 @@
 {
 	"name": "teac-dab-controls",
-	"version": "2.0.1",
+	"version": "2.0.2",
 	"description": "Read buttons and rotary encoder from a TEAC T-H300DAB mkII front panel",
 	"main": "index.js",
 	"scripts": {
