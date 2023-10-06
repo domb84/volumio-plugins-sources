@@ -1,6 +1,6 @@
 {
 	"name": "teac-dab-controls",
-	"version": "1.0.1",
+	"version": "2.0.0",
 	"description": "Read buttons and rotary encoder from a TEAC T-H300DAB mkII front panel",
 	"main": "index.js",
 	"scripts": {
@@ -12,7 +12,7 @@
 	"volumio_info": {
 		"prettyName": "teac-dab-controls",
 		"icon": "fa-lightbulb-o",
-		"plugin_type": "system_controller",
+		"plugin_type": "user_interface",
 		"architectures": [
 			"amd64",
 			"armhf",
@@ -22,11 +22,11 @@
 			"buster"
 		],
 		"details": "Read buttons and rotary encoder from a TEAC T-H300DAB mkII front panel",
-		"changelog": "Initial release"
+		"changelog": "Added volumio configuration page"
 	},
 	"engines": {
-		"node": ">=14.15.4 <15.0.0",
-		"volumio": ">=3.324.0 <4.0.0"
+		"node": ">=14.15.4",
+		"volumio": ">=3"
 	},
 	"dependencies": {
 		"fs-extra": "^0.28.0",
