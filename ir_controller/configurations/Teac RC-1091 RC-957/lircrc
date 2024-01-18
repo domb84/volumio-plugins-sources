@@ -1,6 +1,11 @@
 ### Playback commands ###
 begin
 prog = irexec
+button = KEY_POWER
+config = /usr/local/bin/volumio stop
+end
+begin
+prog = irexec
 button = KEY_PLAY
 config = /usr/local/bin/volumio play
 end
@@ -54,10 +59,4 @@ begin
 prog = irexec
 button = KEY_MUTE
 config = /usr/local/bin/volumio volume toggle
-end
-begin
-prog = irexec
-button = KEY_POWER
-config = /bin/systemctl poweroff
-repeat = 0
 end
