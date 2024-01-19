@@ -65,3 +65,23 @@ prog = irexec
 button = tuner_enter
 config = curl -X POST -H "Content-Type: application/json" -d '{"control":"enter"}' http://127.0.0.1:8889/post_listener
 end
+begin
+prog = irexec
+button = tuner_function
+config = curl -X POST -H "Content-Type: application/json" -d '{"control":"functon-fm-mode"}' http://127.0.0.1:8889/post_listener
+end
+begin
+prog = irexec
+button = tuner_info-rds
+config = curl -X POST -H "Content-Type: application/json" -d '{"control":"info"}' http://127.0.0.1:8889/post_listener
+end
+begin
+prog = irexec
+button = tuner_band
+config = curl -X POST -H "Content-Type: application/json" -d '{"control":"band"}' http://127.0.0.1:8889/post_listener
+end
+begin
+prog = irexec
+button = program
+config = curl -X POST -H "Content-Type: application/json" -d '{"control":"memory"}' http://127.0.0.1:8889/post_listener
+end
