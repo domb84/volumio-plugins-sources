@@ -85,3 +85,8 @@ prog = irexec
 button = program
 config = curl -X POST -H "Content-Type: application/json" -d '{"control":"memory"}' http://127.0.0.1:8889/post_listener
 end
+begin
+prog = irexec
+button = KEY_POWER
+config = /sbin/poweroff -p
+end
