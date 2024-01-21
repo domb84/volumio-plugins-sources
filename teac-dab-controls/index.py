@@ -1,6 +1,6 @@
 import queue
 import threading
-from includes import menu_manager, controls, volumio
+from includes import menu_manager, controls, volumio, api
 import logging
 import json
 import os
@@ -22,7 +22,6 @@ else:
     logger.error(f'The file {config_file_path} does not exist. Exiting.')
     exit(1)
 
-
 # Access button configuration values
 buttons_clk = int(config_data['buttons_clk']['value'])
 buttons_miso = int(config_data['buttons_miso']['value'])
@@ -43,17 +42,25 @@ lcd_d5 = int(config_data['lcd_d5']['value'])
 lcd_d6 = int(config_data['lcd_d6']['value'])
 lcd_d7 = int(config_data['lcd_d7']['value'])
 
+# setup queues
 controlQ = queue.Queue()
 volumioQ = queue.Queue()
 menuManagerQ = queue.Queue()
 
+# init flask
+flask_app_wrapper = api.FlaskAppWrapper(controlQ)
+
+
+# start threads
 t1 = threading.Thread(target=controls.controls, args=(controlQ, rot_enc_A, rot_enc_B, buttons_clk, buttons_miso, buttons_mosi, buttons_cs, buttons_channel1, buttons_channel2))
 t2 = threading.Thread(target=menu_manager.menu_manager, args=(controlQ, volumioQ, menuManagerQ, lcd_rs, lcd_e, lcd_d4, lcd_d5, lcd_d6, lcd_d7))
 t3 = threading.Thread(target=volumio.volumio, args=(volumioQ, menuManagerQ,))
+t4 = threading.Thread(target=flask_app_wrapper.run_app, args=('0.0.0.0', 8889))
 
 t1.start()
 t2.start()
 t3.start()
+t4.start()
 
 controlQ.join()
 volumioQ.join()

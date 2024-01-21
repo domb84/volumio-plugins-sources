@@ -1,4 +1,4 @@
-September 23th 2023
+January 18th 2024
 
 
 ##  For Volumio3 => v 3.236
@@ -140,6 +140,14 @@ everythings it seems ;-)
 - 
 
 ### 4. Last changes
+
+January 18th 2024 v1.0.52
+
+- attempt to fix consumed seconds on track begin
+
+November 14th 2023 v1.0.51
+
+- rework alsa pipeline, camilladsp process... Credits to [Paolo](https://github.com/paolosabatino)
 
 September 23th 2023 v1.0.49
 
