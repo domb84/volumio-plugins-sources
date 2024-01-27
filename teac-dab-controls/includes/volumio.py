@@ -96,9 +96,11 @@ class volumio:
     def _send(self, command, args=None, callback=None, namespace=None):
         self.sio.emit(command, args, callback=callback, namespace=namespace)
 
+
     def get_state(self):
         logger.debug("Getting state")
         self._send('getState', args=None, callback=self._on_push_state)
+
 
     def _on_toast(self, *args):
         try:
@@ -127,6 +129,7 @@ class volumio:
 
     def _on_response(self, *args):
         logger.debug(args)
+
 
     def _on_push_state(self, *args):
         try:
@@ -187,7 +190,7 @@ class volumio:
                     break
 
             # if theres too many missing items log it and skip the rest
-            if status == 'play'and all_none:
+            if status == 'play' and all_none:
                 logger.debug("Now playing item missing state")
             # check if we're not actually playing anything.
             # This happens between every track change so don't show anything in this instance else we spam the display with 'stop' events.
@@ -278,6 +281,7 @@ class volumio:
             self._send('addPlay', {'status':'play', 'service':'spotify', 'uri':uri})
         else:
             logger.debug("URi does not match webradio or spotify: " + str(uri))
+
 
     def stop(self):
         self._send('stop')

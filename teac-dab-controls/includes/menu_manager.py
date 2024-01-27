@@ -21,6 +21,9 @@ class menu_manager:
         self.volumioQ = volumioQ
         self.menuManagerQ = menuManagerQ
 
+        # put the queues in a list
+        queues = [self.controlQ, self.menuManagerQ]
+
         # menu access times
         self.menuAccessTime = datetime.now()
         self.lastMessageTime = datetime.now()
@@ -30,13 +33,14 @@ class menu_manager:
         self.lastMessage = ""
 
         # function menu
-        functionMenu = '[{"title":"Radio","uri":"radio"},{"title":"Spotify","uri":"spotify"}]'
+        functionMenu = '[{"title":"Radio","uri":"radio","service":"webradio"},{"title":"Spotify","uri":"spotify","service":"spotify"}]'
 
         # init menu
         self.menu = RpiLCDMenu(lcdRS, lcdE, [lcdD4, lcdD5, lcdD6, lcdD7], scrolling_menu=False)
         self.menu.message(('Initialising...').upper(), autoscroll=True)
 
-        queues = [self.controlQ, self.menuManagerQ]  # put the queues in a list
+        # render function mentu
+        self.build_menu(functionMenu)
 
         while True:
             for queue in queues:
@@ -54,8 +58,8 @@ class menu_manager:
                                 self.menu.processUp()
                             elif (queueItem['control']) == 'functon-fm-mode':
                                 self.menuAccessTime = datetime.now()
-                                self.volumioQ.put({'button':'spotify'})
-                                # self.menuManagerQ.put({'menu':functionMenu})
+                                # self.volumioQ.put({'button':'spotify'})
+                                self.menuManagerQ.put({'menu':functionMenu})
                             elif (queueItem['control']) == 'enter':
                                 self.menuAccessTime = datetime.now()
                                 self.menu.processEnter()
@@ -218,7 +222,6 @@ class menu_manager:
                 logger.error("Failed to process message: " + str(e))
 
 
-
     def build_menu(self, input):
 
         logger.debug("Message menu: " + str(input))
@@ -259,6 +262,7 @@ class menu_manager:
         # if you do not return the menu it will render the original one again
         return self.menu.render()
 
+
     def resolveItem(self, item_index, buttonName, buttonLink, buttonService):
         logger.debug("item %d pressed" % (item_index))
         logger.debug("item name: %s" % (buttonName))
@@ -266,15 +270,19 @@ class menu_manager:
         logger.debug("item link: %s" % (buttonService))
         self.volumioQ.put({'button':buttonLink})
 
+
     # exit sub menu
     def exitSubMenu(self, submenu):
         return submenu.exit()
 
+
     def dimmer(self):
         self.menu.lcd.displayToggle()
+
 
     def render_bars(self, input):
         bar = int(input / 100 * 16)
         bars = '\240' * bar
         return bars
+
 
