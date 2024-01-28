@@ -4,7 +4,6 @@ import time
 import logging
 logger = logging.getLogger("Controls")
 logger.setLevel(logging.WARNING)
-logging.basicConfig()
 
 class controls:
 

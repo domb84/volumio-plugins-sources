@@ -1,7 +1,6 @@
 import logging
 logger = logging.getLogger("Menu Manager")
 logger.setLevel(logging.WARNING)
-logging.basicConfig()
 
 import json
 import re
@@ -113,6 +112,10 @@ class menu_manager:
                         elif 'message' in queueItem:
                             logger.debug(queueItem['message'])
                             self.show_message(queueItem['message'])
+
+                        elif 'clear' in queueItem:
+                            logger.debug(queueItem['clear'])
+                            self.display_message("",clear=True)
 
                         else:
                             logger.warning("Queue item did not match filters: " + str(queueItem))

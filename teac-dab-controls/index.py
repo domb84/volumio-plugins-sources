@@ -3,11 +3,27 @@ import threading
 from includes import menu_manager, controls, volumio, api
 import logging
 import json
-import os
+import os, sys, time
+import signal
 
 logger = logging.getLogger("Teac DAB controls")
-logger.setLevel(logging.WARNING)
-logging.basicConfig()
+logger.setLevel(logging.DEBUG)
+
+def signal_handler(sig, frame):
+    logger.debug("Caught signal: %s", sig)
+    # Perform cleanup or additional actions if needed
+    try:
+        menuManagerQ.put({'clear':''})
+        time.sleep(3)      
+        sys.exit(0)
+    except Exception as e:
+        logger.debug(f'{e}')
+        sys.exit(1)
+
+
+# Register the signal handler
+logger.debug("Registering signal handler")
+signal.signal(signal.SIGTERM, signal_handler)
 
 # Specify the path to your JSON configuration file
 config_file_path = '/data/configuration/user_interface/teac-dab-controls/config.json'
