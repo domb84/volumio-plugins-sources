@@ -87,6 +87,6 @@ config = curl -X POST -H "Content-Type: application/json" -d '{"control":"memory
 end
 begin
 prog = irexec
-button = KEY_POWER
+button = KEY_STANDBY
 config = /sbin/poweroff -p
 end
