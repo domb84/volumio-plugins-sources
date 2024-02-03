@@ -8,11 +8,17 @@ logger.setLevel(logging.WARNING)
 class controls:
 
     def __init__(self, controlQ=None, encA=17, encB=27, butClk=11, butDOUT=9, butDIN=10, butCS=22, but1=0, but2=7):
-        logger.debug("Loading controls")
+        logger.warning("Loading controls")
         self.controlQ = controlQ
 
         self.rotary_encoder(encA,encB)
         self.buttons(butClk,butDOUT,butDIN,butCS,but1,but2)
+
+
+    def normalize_value(self, value, min_value, max_value, target_range):
+        normalized_value = 1 - (value - min_value) / (max_value - min_value)
+        scaled_value = normalized_value * target_range
+        return int(scaled_value)
 
 
     def rotary_encoder(self,encA,encB):
@@ -38,11 +44,11 @@ class controls:
                 self.last_gpio = gpio
                 if gpio == Enc_A and level == 1:
                     if self.last_B == 1:
-                        logger.debug('Volume down')
+                        logger.warning('Volume down')
                         self.controlQ.put({'control':'vol-down'})
                 elif gpio == Enc_B and level == 1:
                     if self.last_A == 1:
-                        logger.debug('Volume up')
+                        logger.warning('Volume up')
                         self.controlQ.put({'control':'vol-up'})
 
 
@@ -55,7 +61,7 @@ class controls:
         pi.callback(Enc_A, pigpio.EITHER_EDGE, rotary_interrupt)
         pi.callback(Enc_B, pigpio.EITHER_EDGE, rotary_interrupt)
 
-        logger.debug('Rotary thread start successfully, listening for turns')
+        logger.info('Rotary thread start successfully, listening for turns')
 
 
     def buttons(self,butClk,butDOUT,butDIN,butCS,but1,but2):
@@ -84,7 +90,9 @@ class controls:
             command = channel
             command |= 0x18  # start bit + single-ended
             command <<= 3    # we only need to send 5 bits
-            for i in range(5):
+
+            # use an _ as we do not need to retrieve a value from the loop
+            for _ in range(5):
                 if command & 0x80:
                     GPIO.output(DIN, GPIO.HIGH)
                 else:
@@ -93,9 +101,9 @@ class controls:
                 GPIO.output(CLK, GPIO.HIGH)
                 GPIO.output(CLK, GPIO.LOW)
 
-            # Read the 12-bit data from the MCP3008
+            # Read the 10-bit data from the MCP3008
             value = 0
-            for i in range(12):
+            for _ in range(10):
                 GPIO.output(CLK, GPIO.HIGH)
                 GPIO.output(CLK, GPIO.LOW)
                 value <<= 1
@@ -114,53 +122,60 @@ class controls:
             # read data from channels in the list
             for channel in channels:
                 data = read_mcp3008(channel)
-                # pause between caught button presses
-                if data < 1500:
-                    time.sleep(0.25)
-                    if channel == 0:
-                        if data < 50:
-                            logger.debug('Power button')
-                            self.controlQ.put({'control':'power'})
-                        elif 1400 <= data <= 1500:
-                            logger.debug('Dimmer button')
-                            self.controlQ.put({'control':'dimmer'})
-                        elif 1000 <= data <= 1100:
-                            logger.debug('Memory button')
-                            self.controlQ.put({'control':'memory'})
-                        elif 1200 <= data <= 1350:
-                            logger.debug('Auto tuning button')
-                            self.controlQ.put({'control':'auto-tuning'})
-                        elif 800 <= data <= 900:
-                            logger.debug('Enter button')
-                            self.controlQ.put({'control':'enter'})
-                        elif 400 <= data <= 500:
-                            logger.debug('Function button')
-                            self.controlQ.put({'control':'functon-fm-mode'})
-                        elif 100 <= data <= 250:
-                            logger.debug('Band button')
-                            self.controlQ.put({'control':'band'})
-                        elif 550 <= data <= 800:
-                            logger.debug('Info button')
-                            self.controlQ.put({'control':'info'})
-                        else:
-                            logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
+                logger.debug('Caught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
 
-                    elif channel == 7:
-                        if data < 50:
-                            logger.debug('Timer button')
-                            self.controlQ.put({'control':'timer'})
-                        elif 150 <= data <= 300:
-                            logger.debug('Time adj button')
-                            self.controlQ.put({'control':'time-adj'})
-                        elif 350 <= data <= 500:
-                            logger.debug('Daily button')
-                            self.controlQ.put({'control':'daily'})
-    
-                        else:
-                            logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
+                data = self.normalize_value(data, 0, 512, 16)
+                logger.debug('Normlaised on Channel: {channel}: {data}'.format(channel=channel, data=data))
+                # pause between caught button presses to stop double presses
+                time.sleep(0.25)
+                if channel == 0:
+                    if data == 0:
+                        logger.debug('Nothing pressed')
+                    elif data == 15:
+                        logger.debug('Power button')
+                        self.controlQ.put({'control':'power'})
+                    elif data == 4:
+                        logger.debug('Dimmer button')
+                        self.controlQ.put({'control':'dimmer'})
+                    elif data == 7:
+                        logger.debug('Memory button')
+                        self.controlQ.put({'control':'memory'})
+                    elif data == 6:
+                        logger.debug('Auto tuning button')
+                        self.controlQ.put({'control':'auto-tuning'})
+                    elif data == 9:
+                        logger.debug('Enter button')
+                        self.controlQ.put({'control':'enter'})
+                    elif data == 12:
+                        logger.debug('Function button')
+                        self.controlQ.put({'control':'functon-fm-mode'})
+                    elif data == 14:
+                        logger.debug('Band button')
+                        self.controlQ.put({'control':'band'})
+                    elif data == 10:
+                        logger.debug('Info button')
+                        self.controlQ.put({'control':'info'})
+                    else:
+                        logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
+
+                elif channel == 7:
+                    if data == 0:
+                        logger.debug('Nothing pressed')
+                    elif data == 15:
+                        logger.debug('Timer button')
+                        self.controlQ.put({'control':'timer'})
+                    elif data == 14:
+                        logger.debug('Time adj button')
+                        self.controlQ.put({'control':'time-adj'})
+                    elif data == 12:
+                        logger.debug('Daily button')
+                        self.controlQ.put({'control':'daily'})
 
                     else:
-                            logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
+                        logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
+
+                else:
+                        logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
 
 
             # Wait for a short period before reading again
