@@ -1,6 +1,6 @@
 {
 	"name": "teac-dab-controls",
-	"version": "2.0.7",
+	"version": "2.0.8",
 	"description": "Read buttons and rotary encoder from a TEAC T-H300DAB mkII front panel",
 	"main": "index.js",
 	"scripts": {
@@ -22,7 +22,7 @@
 			"buster"
 		],
 		"details": "Read buttons and rotary encoder from a TEAC T-H300DAB mkII front panel",
-		"changelog": "Simplify button reads"
+		"changelog": "Switch to FastAPI from Flask"
 	},
 	"engines": {
 		"node": ">=14.15.4",

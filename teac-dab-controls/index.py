@@ -63,15 +63,15 @@ controlQ = queue.Queue()
 volumioQ = queue.Queue()
 menuManagerQ = queue.Queue()
 
-# init flask
-flask_app_wrapper = api.FlaskAppWrapper(controlQ)
+# init api
+api_wrapper = api.ApiWrapper(controlQ)
 
 
 # start threads
 t1 = threading.Thread(target=controls.controls, args=(controlQ, rot_enc_A, rot_enc_B, buttons_clk, buttons_miso, buttons_mosi, buttons_cs, buttons_channel1, buttons_channel2))
 t2 = threading.Thread(target=menu_manager.menu_manager, args=(controlQ, volumioQ, menuManagerQ, lcd_rs, lcd_e, lcd_d4, lcd_d5, lcd_d6, lcd_d7))
 t3 = threading.Thread(target=volumio.volumio, args=(volumioQ, menuManagerQ,))
-t4 = threading.Thread(target=flask_app_wrapper.run_app, args=('0.0.0.0', 8889))
+t4 = threading.Thread(target=api_wrapper.run_app, args=('0.0.0.0', 8889))
 
 t1.start()
 t2.start()
