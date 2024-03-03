@@ -62,5 +62,41 @@
     "lcd_d7": {
         "type": "number",
         "value": "15"
+    },
+    "btn_enter": {
+        "type": "text",
+        "value": "0, 18"
+    },
+    "btn_radio": {
+        "type": "text",
+        "value": "0, 22"
+    },
+    "btn_spotify": {
+        "type": "text",
+        "value": "0, 16"
+    },
+    "btn_stop": {
+        "type": "text",
+        "value": "0, 23"
+    },
+    "btn_info": {
+        "type": "text",
+        "value": "0, 20"
+    },
+    "btn_favourite": {
+        "type": "text",
+        "value": "0, 17"
+    },
+    "btn_main_menu": {
+        "type": "text",
+        "value": "0, 21"
+    },
+    "btn_no_press_channel1": {
+        "type": "text",
+        "value": "0, 12"
+    },
+    "btn_no_press_channel2": {
+        "type": "text",
+        "value": "7, 12"
     }
 }

@@ -48,6 +48,23 @@ buttons_channel2 = int(config_data['buttons_channel2']['value'])
 spi_bus = int(config_data['spi_bus']['value'])
 spi = bool(config_data['spi']['value'])
 
+# read button digital values
+btn_config = {
+    'btn_enter': tuple(map(int, config_data['btn_enter']['value'].split(','))),
+    'btn_radio': tuple(map(int, config_data['btn_radio']['value'].split(','))),
+    'btn_spotify': tuple(map(int, config_data['btn_spotify']['value'].split(','))),
+    'btn_stop': tuple(map(int, config_data['btn_stop']['value'].split(','))),
+    'btn_info': tuple(map(int, config_data['btn_info']['value'].split(','))),
+    'btn_favourite': tuple(map(int, config_data['btn_favourite']['value'].split(','))),
+    'btn_main_menu': tuple(map(int, config_data['btn_main_menu']['value'].split(','))),
+}
+
+btn_skip_config = {
+    'btn_no_press_channel1': tuple(map(int, config_data['btn_no_press_channel1']['value'].split(','))),
+    'btn_no_press_channel2': tuple(map(int, config_data['btn_no_press_channel2']['value'].split(',')))
+}
+
+logger.warning(btn_config)
 logger.warning(f'Index: SPI: {spi}. Bus: {spi_bus}')
 
 # Access rotary encoder configuration values
@@ -72,7 +89,7 @@ api_wrapper = api.ApiWrapper(controlQ)
 
 
 # start threads
-t1 = threading.Thread(target=controls.controls, args=(controlQ, rot_enc_A, rot_enc_B, buttons_clk, buttons_miso, buttons_mosi, buttons_cs, buttons_channel1, buttons_channel2, spi_bus, spi))
+t1 = threading.Thread(target=controls.controls, args=(controlQ, rot_enc_A, rot_enc_B, buttons_clk, buttons_miso, buttons_mosi, buttons_cs, buttons_channel1, buttons_channel2, spi_bus, spi, btn_config, btn_skip_config))
 t2 = threading.Thread(target=menu_manager.menu_manager, args=(controlQ, volumioQ, menuManagerQ, lcd_rs, lcd_e, lcd_d4, lcd_d5, lcd_d6, lcd_d7))
 t3 = threading.Thread(target=volumio.volumio, args=(volumioQ, menuManagerQ,))
 t4 = threading.Thread(target=api_wrapper.run_app, args=('0.0.0.0', 8889))

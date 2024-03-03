@@ -106,6 +106,15 @@ teacdabcontrols.prototype.getUIConfig = function() {
             uiconf.sections[0].content[5].value = self.config.get('buttons_cs');
             uiconf.sections[0].content[6].value = self.config.get('buttons_channel1');
             uiconf.sections[0].content[7].value = self.config.get('buttons_channel2');
+            uiconf.sections[0].content[8].value = self.config.get('btn_enter');
+            uiconf.sections[0].content[9].value = self.config.get('btn_radio');
+            uiconf.sections[0].content[10].value = self.config.get('btn_spotify');
+            uiconf.sections[0].content[11].value = self.config.get('btn_stop');
+            uiconf.sections[0].content[12].value = self.config.get('btn_info');
+            uiconf.sections[0].content[13].value = self.config.get('btn_favourite');
+            uiconf.sections[0].content[14].value = self.config.get('btn_main_menu');
+            uiconf.sections[0].content[15].value = self.config.get('btn_no_press_channel1');
+            uiconf.sections[0].content[16].value = self.config.get('btn_no_press_channel2');
             uiconf.sections[1].content[0].value = self.config.get('rot_enc_A');
             uiconf.sections[1].content[1].value = self.config.get('rot_enc_B');
             uiconf.sections[2].content[0].value = self.config.get('lcd_rs');
@@ -114,7 +123,6 @@ teacdabcontrols.prototype.getUIConfig = function() {
             uiconf.sections[2].content[3].value = self.config.get('lcd_d5');
             uiconf.sections[2].content[4].value = self.config.get('lcd_d6');
             uiconf.sections[2].content[5].value = self.config.get('lcd_d7');
-
             defer.resolve(uiconf);
         })
         .fail(function () {

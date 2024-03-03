@@ -12,7 +12,6 @@ from datetime import datetime
 from rpilcdmenu import *
 from rpilcdmenu.items import *
 
-
 class menu_manager:
 
     def __init__(self ,controlQ, volumioQ, menuManagerQ, lcdRS=7, lcdE=8, lcdD4=25, lcdD5=24, lcdD6=23, lcdD7=15):
@@ -55,23 +54,25 @@ class menu_manager:
                             elif (queueItem['control']) == 'vol-down':
                                 self.menuAccessTime = datetime.now()
                                 self.menu.processUp()
-                            elif (queueItem['control']) == 'functon-fm-mode':
+                            elif (queueItem['control']) == 'btn_main_menu':
                                 self.menuAccessTime = datetime.now()
-                                # self.volumioQ.put({'button':'spotify'})
                                 self.menuManagerQ.put({'menu':functionMenu})
-                            elif (queueItem['control']) == 'enter':
+                            elif (queueItem['control']) == 'btn_enter':
                                 self.menuAccessTime = datetime.now()
                                 self.menu.processEnter()
-                            elif (queueItem['control']) == 'band':
+                            elif (queueItem['control']) == 'btn_radio':
                                 self.menuAccessTime = datetime.now()
                                 self.volumioQ.put({'button':'radio'})
-                            elif (queueItem['control']) == 'power':
+                            elif (queueItem['control']) == 'btn_stop':
                                 self.menuAccessTime = datetime.now()
                                 self.volumioQ.put({'button':'power'})
-                            elif (queueItem['control']) == 'info':
+                            elif (queueItem['control']) == 'btn_info':
                                 self.menuAccessTime = datetime.now()
                                 self.volumioQ.put({'show':'info'})
-                            elif (queueItem['control']) == 'memory':
+                            elif (queueItem['control']) == 'btn_spotify':
+                                self.menuAccessTime = datetime.now()
+                                self.volumioQ.put({'button':'spotify'})
+                            elif (queueItem['control']) == 'btn_favourite':
                                 self.menuAccessTime = datetime.now()
                                 # use getattribute to gather information from menu item
                                 # other useful attributes are 'text','menu','function'

@@ -24,7 +24,14 @@
           "buttons_mosi",
           "buttons_cs",
           "buttons_channel1",
-          "buttons_channel2"
+          "buttons_channel2",
+          "btn_enter",
+          "btn_radio",
+          "btn_spotify",
+          "btn_stop",
+          "btn_info",
+          "btn_favourite",
+          "btn_main_menu"
         ]
       },
       "content": [
@@ -82,6 +89,69 @@
           "type":"number",
           "element": "input",
           "label": "Buttons Channel 2 (MCP3008) pin",
+          "value": ""
+        },
+        {
+          "id": "btn_enter",
+          "type":"text",
+          "element": "input",
+          "label": "Resistance value for Enter",
+          "value": ""
+        },
+        {
+          "id": "btn_radio",
+          "type":"text",
+          "element": "input",
+          "label": "Resistance value for Radio",
+          "value": ""
+        },
+        {
+          "id": "btn_spotify",
+          "type":"text",
+          "element": "input",
+          "label": "Resistance value for Spotify",
+          "value": ""
+        },
+        {
+          "id": "btn_stop",
+          "type":"text",
+          "element": "input",
+          "label": "Resistance value for Stop",
+          "value": ""
+        },
+        {
+          "id": "btn_info",
+          "type":"text",
+          "element": "input",
+          "label": "Resistance value for Info",
+          "value": ""
+        },
+        {
+          "id": "btn_favourite",
+          "type":"text",
+          "element": "input",
+          "label": "Resistance value for Favourite",
+          "value": ""
+        },
+        {
+          "id": "btn_main_menu",
+          "type":"text",
+          "element": "input",
+          "label": "Resistance value for Main Menu",
+          "value": ""
+        },
+        {
+          "id": "btn_no_press_channel1",
+          "type":"text",
+          "element": "input",
+          "label": "Resistance value when no button is pressed on channel 1",
+          "value": ""
+        },
+        {
+          "id": "btn_no_press_channel2",
+          "type":"text",
+          "element": "input",
+          "label": "Resistance value when no button is pressed on channel 2",
           "value": ""
         }
       ]
