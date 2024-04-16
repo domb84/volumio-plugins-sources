@@ -8,7 +8,7 @@ apt-get update
 # Install the required packages via apt-get
 apt-get -y install pigpio python3-dev
 
-pip3 install python-engineio==3.14.2 python-socketio[client]==4.6.0 adafruit-blinka Adafruit-PlatformDetect adafruit-python-shell adafruit_circuitpython_mcp3xxx adafruit_circuitpython_bitbangio RPi.GPIO pigpio retrying fastapi uvicorn
+pip3 install python-engineio==3.14.2 python-socketio[client]==4.6.0 adafruit-blinka Adafruit-PlatformDetect adafruit-python-shell adafruit_circuitpython_mcp3xxx adafruit_circuitpython_bitbangio RPi.GPIO pigpio retrying fastapi uvicorn spidev
 pip3 install git+https://github.com/domb84/rpi-lcd-menu.git
 
 # use pwm mode for pigpiod

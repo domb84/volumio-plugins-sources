@@ -45,6 +45,10 @@ buttons_mosi = int(config_data['buttons_mosi']['value'])
 buttons_cs = int(config_data['buttons_cs']['value'])
 buttons_channel1 = int(config_data['buttons_channel1']['value'])
 buttons_channel2 = int(config_data['buttons_channel2']['value'])
+spi_bus = int(config_data['spi_bus']['value'])
+spi = bool(config_data['spi']['value'])
+
+logger.warning(f'Index: SPI: {spi}. Bus: {spi_bus}')
 
 # Access rotary encoder configuration values
 rot_enc_A = int(config_data['rot_enc_A']['value'])
@@ -68,7 +72,7 @@ api_wrapper = api.ApiWrapper(controlQ)
 
 
 # start threads
-t1 = threading.Thread(target=controls.controls, args=(controlQ, rot_enc_A, rot_enc_B, buttons_clk, buttons_miso, buttons_mosi, buttons_cs, buttons_channel1, buttons_channel2))
+t1 = threading.Thread(target=controls.controls, args=(controlQ, rot_enc_A, rot_enc_B, buttons_clk, buttons_miso, buttons_mosi, buttons_cs, buttons_channel1, buttons_channel2, spi_bus, spi))
 t2 = threading.Thread(target=menu_manager.menu_manager, args=(controlQ, volumioQ, menuManagerQ, lcd_rs, lcd_e, lcd_d4, lcd_d5, lcd_d6, lcd_d7))
 t3 = threading.Thread(target=volumio.volumio, args=(volumioQ, menuManagerQ,))
 t4 = threading.Thread(target=api_wrapper.run_app, args=('0.0.0.0', 8889))

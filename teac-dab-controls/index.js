@@ -98,13 +98,14 @@ teacdabcontrols.prototype.getUIConfig = function() {
         __dirname + '/i18n/strings_en.json',
         __dirname + '/UIConfig.json')
         .then(function (uiconf) {
-
-            uiconf.sections[0].content[0].value = self.config.get('buttons_clk');
-            uiconf.sections[0].content[1].value = self.config.get('buttons_miso');
-            uiconf.sections[0].content[2].value = self.config.get('buttons_mosi');
-            uiconf.sections[0].content[3].value = self.config.get('buttons_cs');
-            uiconf.sections[0].content[4].value = self.config.get('buttons_channel1');
-            uiconf.sections[0].content[5].value = self.config.get('buttons_channel2');
+            uiconf.sections[0].content[0].value = self.config.get('spi');
+            uiconf.sections[0].content[1].value = self.config.get('spi_bus');
+            uiconf.sections[0].content[2].value = self.config.get('buttons_clk');
+            uiconf.sections[0].content[3].value = self.config.get('buttons_miso');
+            uiconf.sections[0].content[4].value = self.config.get('buttons_mosi');
+            uiconf.sections[0].content[5].value = self.config.get('buttons_cs');
+            uiconf.sections[0].content[6].value = self.config.get('buttons_channel1');
+            uiconf.sections[0].content[7].value = self.config.get('buttons_channel2');
             uiconf.sections[1].content[0].value = self.config.get('rot_enc_A');
             uiconf.sections[1].content[1].value = self.config.get('rot_enc_B');
             uiconf.sections[2].content[0].value = self.config.get('lcd_rs');

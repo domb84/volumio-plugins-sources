@@ -17,6 +17,8 @@
       "saveButton": {
         "label": "Save",
         "data": [
+          "spi",
+          "spi_bus",
           "buttons_clk",
           "buttons_miso",
           "buttons_mosi",
@@ -26,6 +28,20 @@
         ]
       },
       "content": [
+        {
+          "id": "spi",
+          "type":"boolean",
+          "element": "switch",
+          "label": "SPI mode",
+          "value": ""
+        },
+        {
+          "id": "spi_bus",
+          "type":"number",
+          "element": "input",
+          "label": "SPI bus (0 or 1)",
+          "value": ""
+        },
         {
           "id": "buttons_clk",
           "type":"number",

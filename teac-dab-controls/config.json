@@ -1,4 +1,12 @@
 {
+    "spi": {
+        "type": "boolean",
+        "value": false
+    },
+    "spi_bus": {
+        "type": "number",
+        "value": "1"
+    },
     "buttons_clk": {
         "type": "number",
         "value": "11"
