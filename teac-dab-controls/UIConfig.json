@@ -31,16 +31,17 @@
           "btn_stop",
           "btn_info",
           "btn_favourite",
-          "btn_main_menu"
+          "btn_main_menu",
+          "btn_no_press_channel1",
+          "btn_no_press_channel2"
         ]
       },
       "content": [
         {
           "id": "spi",
-          "type":"boolean",
           "element": "switch",
           "label": "SPI mode",
-          "value": ""
+          "value": false
         },
         {
           "id": "spi_bus",

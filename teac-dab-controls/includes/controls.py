@@ -9,19 +9,17 @@ logger.setLevel(logging.DEBUG)
 class controls:
 
     def __init__(self, controlQ=None, encA=17, encB=27, butClk=11, butDOUT=9, butDIN=10, butCS=22, but1=0, but2=7, spi_bus=1, spi=True, btn_config=None, btn_skip_config=None):
-        logger.warning("Loading controls")
+        logger.debug("Loading controls")
         self.controlQ = controlQ
 
         self.rotary_encoder(encA,encB)
 
-        logger.warning(f'Controls: SPI: {spi}. Bus: {spi_bus}')
-
         if spi:
-            logger.warning('SPI mode')
+            logger.debug('SPI mode')
             self.buttons_spi(spi_bus,butCS,but1,but2,btn_config, btn_skip_config)
 
         else:
-            logger.warning('Software mode')
+            logger.debug('Software mode')
             self.buttons(butClk,butDOUT,butDIN,butCS,but1,but2,btn_config, btn_skip_config)
 
 
@@ -53,12 +51,12 @@ class controls:
                 self.last_gpio = gpio
                 if gpio == Enc_A and level == 1:
                     if self.last_B == 1:
-                        logger.warning('Volume down')
-                        self.controlQ.put({'control':'vol-down'})
+                        logger.debug('Menu down')
+                        self.controlQ.put({'control':'menu_down'})
                 elif gpio == Enc_B and level == 1:
                     if self.last_A == 1:
-                        logger.warning('Volume up')
-                        self.controlQ.put({'control':'vol-up'})
+                        logger.debug('Menu up')
+                        self.controlQ.put({'control':'menu_up'})
 
 
         # setup rotary encoder in pigpio
@@ -142,7 +140,7 @@ class controls:
                     # If not found in btn_skip_config, check btn_config
                     for btn, (btn_channel, btn_data) in btn_config.items():
                         if btn_channel == channel and btn_data == data:
-                            logger.warning('Pressed button:{btn} on channel:{btn_channel} with value:{btn_data}'.format(btn=btn, btn_channel=btn_channel, btn_data=btn_data))
+                            logger.debug('Pressed button:{btn} on channel:{btn_channel} with value:{btn_data}'.format(btn=btn, btn_channel=btn_channel, btn_data=btn_data))
                             self.controlQ.put({'control': btn})
                             break
                     else:
@@ -200,7 +198,7 @@ class controls:
                     # If not found in btn_skip_config, check btn_config
                     for btn, (btn_channel, btn_data) in btn_config.items():
                         if btn_channel == channel and btn_data == data:
-                            logger.warning('Pressed button:{btn} on channel:{btn_channel} with value:{btn_data}'.format(btn=btn, btn_channel=btn_channel, btn_data=btn_data))
+                            logger.debug('Pressed button:{btn} on channel:{btn_channel} with value:{btn_data}'.format(btn=btn, btn_channel=btn_channel, btn_data=btn_data))
                             self.controlQ.put({'control': btn})
                             break
                     else:

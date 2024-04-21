@@ -53,37 +53,37 @@ end
 begin
 prog = irexec
 button = tuner_up
-config = curl -X POST -H "Content-Type: application/json" -d '{"control":"vol-down"}' http://127.0.0.1:8889/post_listener
+config = curl -X POST -H "Content-Type: application/json" -d '{"control":"menu_down"}' http://127.0.0.1:8889/post_listener
 end
 begin
 prog = irexec
 button = tuner_down
-config = curl -X POST -H "Content-Type: application/json" -d '{"control":"vol-up"}' http://127.0.0.1:8889/post_listener
+config = curl -X POST -H "Content-Type: application/json" -d '{"control":"menu_up"}' http://127.0.0.1:8889/post_listener
 end
 begin
 prog = irexec
 button = tuner_enter
-config = curl -X POST -H "Content-Type: application/json" -d '{"control":"enter"}' http://127.0.0.1:8889/post_listener
+config = curl -X POST -H "Content-Type: application/json" -d '{"control":"btn_enter"}' http://127.0.0.1:8889/post_listener
 end
 begin
 prog = irexec
 button = tuner_function
-config = curl -X POST -H "Content-Type: application/json" -d '{"control":"functon-fm-mode"}' http://127.0.0.1:8889/post_listener
+config = curl -X POST -H "Content-Type: application/json" -d '{"control":"btn_main_menu"}' http://127.0.0.1:8889/post_listener
 end
 begin
 prog = irexec
 button = tuner_info-rds
-config = curl -X POST -H "Content-Type: application/json" -d '{"control":"info"}' http://127.0.0.1:8889/post_listener
+config = curl -X POST -H "Content-Type: application/json" -d '{"control":"btn_info"}' http://127.0.0.1:8889/post_listener
 end
 begin
 prog = irexec
 button = tuner_band
-config = curl -X POST -H "Content-Type: application/json" -d '{"control":"band"}' http://127.0.0.1:8889/post_listener
+config = curl -X POST -H "Content-Type: application/json" -d '{"control":"btn_radio"}' http://127.0.0.1:8889/post_listener
 end
 begin
 prog = irexec
 button = program
-config = curl -X POST -H "Content-Type: application/json" -d '{"control":"memory"}' http://127.0.0.1:8889/post_listener
+config = curl -X POST -H "Content-Type: application/json" -d '{"control":"btn_main_menu"}' http://127.0.0.1:8889/post_listener
 end
 begin
 prog = irexec

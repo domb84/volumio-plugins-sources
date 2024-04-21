@@ -136,13 +136,21 @@ teacdabcontrols.prototype.getUIConfig = function() {
 teacdabcontrols.prototype.saveOptions = function (data) {
     const self = this;
 
-    function isNumeric(str) {
-        // Use parseFloat or parseInt to attempt conversion to a number
-        const num = parseFloat(str);
-      
-        // Check if the conversion is a valid number and not NaN
-        return !isNaN(num);
-      }
+    // Function to check if a value is numeric, boolean, or comma-separated numbers
+    function isValid(value) {
+        // Check if the value is a boolean
+        if (typeof value === 'boolean') {
+            return true;
+        }
+        
+        // Check if the value is a comma-separated list of numbers
+        if (typeof value === 'string' && value.match(/^\s*(\d+\s*,\s*)*\d+\s*$/)) {
+            return true;
+        }
+        
+        // Check if the value is a single numeric value
+        return !isNaN(parseFloat(value)) && isFinite(value);
+    }
 
     self.logger.info('Teac DAB Controls - saving settings');
 
@@ -154,17 +162,17 @@ teacdabcontrols.prototype.saveOptions = function (data) {
 
     // Iterate through the object and save if the item is valid
     for (const key in jsonObject) {
-    if (jsonObject.hasOwnProperty(key)) {
-        const value = jsonObject[key];
-        // console.log(`${key}: ${value}`);
-        if (isNumeric(value)) {
-            // console.log(`${value} is a valid number. Saving ${key}.`);
-            self.config.set(key, value);
-        } else {
-            self.logger.error(`${value} is not a valid number. Not saving ${key}.`);
-            this.commandRouter.pushToastMessage('fail', ("Teac DAB Controls"), this.commandRouter.getI18nString("COMMON.CONFIGURATION_UPDATE_DESCRIPTION"));
+        if (jsonObject.hasOwnProperty(key)) {
+            const value = jsonObject[key];
+            // console.log(`${key}: ${value}`);
+            if (isValid(value)) {
+                // console.log(`${value} is a valid number, comma seperated numbers or boolean. Saving ${key}.`);
+                self.config.set(key, value);
+            } else {
+                self.logger.error(`${value} is not a valid number, comma seperated numbers or boolean. Not saving ${key}.`);
+                this.commandRouter.pushToastMessage('fail', ("Teac DAB Controls"), (`${value} is not a valid number, comma seperated numbers or boolean. Not saving ${key}.`));
+            }
         }
-    }
     }
     
     this.commandRouter.pushToastMessage('success', ("Teac DAB Controls"), this.commandRouter.getI18nString("COMMON.CONFIGURATION_UPDATE_DESCRIPTION"));

@@ -48,10 +48,10 @@ class menu_manager:
 
                     try:
                         if 'control' in queueItem:
-                            if (queueItem['control']) == 'vol-up':
+                            if (queueItem['control']) == 'menu_up':
                                 self.menuAccessTime = datetime.now()
                                 self.menu.processDown()
-                            elif (queueItem['control']) == 'vol-down':
+                            elif (queueItem['control']) == 'menu_down':
                                 self.menuAccessTime = datetime.now()
                                 self.menu.processUp()
                             elif (queueItem['control']) == 'btn_main_menu':

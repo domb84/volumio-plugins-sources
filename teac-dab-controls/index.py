@@ -64,9 +64,6 @@ btn_skip_config = {
     'btn_no_press_channel2': tuple(map(int, config_data['btn_no_press_channel2']['value'].split(',')))
 }
 
-logger.warning(btn_config)
-logger.warning(f'Index: SPI: {spi}. Bus: {spi_bus}')
-
 # Access rotary encoder configuration values
 rot_enc_A = int(config_data['rot_enc_A']['value'])
 rot_enc_B = int(config_data['rot_enc_B']['value'])
