@@ -6,9 +6,9 @@
     {
       "id": "buttons",
       "element": "section",
-      "label": "buttons",
+      "label": "Button ADC Pin Configuration",
       "icon": "fa-cogs",
-      "description": "Pin configuration for the buttons reader",
+      "description": "Pin configuration to read button presses from an MCP3008 ADC.",
       "onSave": {
         "type": "controller",
         "endpoint":"user_interface/teac-dab-controls",
@@ -24,16 +24,7 @@
           "buttons_mosi",
           "buttons_cs",
           "buttons_channel1",
-          "buttons_channel2",
-          "btn_enter",
-          "btn_radio",
-          "btn_spotify",
-          "btn_stop",
-          "btn_info",
-          "btn_favourite",
-          "btn_main_menu",
-          "btn_no_press_channel1",
-          "btn_no_press_channel2"
+          "buttons_channel2"
         ]
       },
       "content": [
@@ -91,7 +82,35 @@
           "element": "input",
           "label": "Buttons Channel 2 (MCP3008) pin",
           "value": ""
-        },
+        }
+      ]
+    },
+    {
+      "id": "button_resistance",
+      "element": "section",
+      "label": "Button Channel & Value",
+      "icon": "fa-cogs",
+      "description": "Set the channel (0 or 1) and value (0-24) that matches the value when the desired button is pressed via the ADC. Enter as channel, value. i.e. 0,12.",
+      "onSave": {
+        "type": "controller",
+        "endpoint":"user_interface/teac-dab-controls",
+        "method":"saveOptions"
+      },
+      "saveButton": {
+        "label": "Save",
+        "data": [
+          "btn_enter",
+          "btn_radio",
+          "btn_spotify",
+          "btn_stop",
+          "btn_info",
+          "btn_favourite",
+          "btn_main_menu",
+          "btn_no_press_channel1",
+          "btn_no_press_channel2"
+        ]
+      },
+      "content": [
         {
           "id": "btn_enter",
           "type":"text",
@@ -160,9 +179,9 @@
     {
       "id": "encoder",
       "element": "section",
-      "label": "encoder",
+      "label": "Rotary Encoder Pin Configuration",
       "icon": "fa-cogs",
-      "description": "Pin configuration for the rotary encoder",
+      "description": "Pin configuration for your rotary encoder for menu navigation.",
       "onSave": {
         "type": "controller",
         "endpoint":"user_interface/teac-dab-controls",
@@ -180,14 +199,14 @@
           "id": "rot_enc_A",
           "type":"number",
           "element": "input",
-          "label": "Rotary encoder A pin",
+          "label": "Rotary encoder pin A",
           "value": ""
         },
         {
           "id": "rot_enc_B",
           "type":"number",
           "element": "input",
-          "label": "Rotary encoder B pin",
+          "label": "Rotary encoder pin B",
           "value": ""
         }
       ]
@@ -195,9 +214,9 @@
     {
       "id": "lcd",
       "element": "section",
-      "label": "lcd",
+      "label": "16x2 Display Pin Configuration",
       "icon": "fa-cogs",
-      "description": "Pin configuration for the LCD display",
+      "description": "Pin configuration for your 16x2 VFD or LCD display.",
       "onSave": {
         "type": "controller",
         "endpoint":"user_interface/teac-dab-controls",
