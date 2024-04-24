@@ -1,25 +1,32 @@
 import RPi.GPIO as GPIO
 import pigpio
+import spidev
 import time
 import logging
 logger = logging.getLogger("Controls")
-logger.setLevel(logging.WARNING)
+logger.setLevel(logging.DEBUG)
 
 class controls:
 
-    def __init__(self, controlQ=None, encA=17, encB=27, butClk=11, butDOUT=9, butDIN=10, butCS=22, but1=0, but2=7):
-        logger.warning("Loading controls")
+    def __init__(self, controlQ=None, encA=17, encB=27, butClk=11, butDOUT=9, butDIN=10, butCS=22, but1=0, but2=7, spi_bus=1, spi=True, btn_config=None, btn_skip_config=None):
+        logger.debug("Loading controls")
         self.controlQ = controlQ
 
         self.rotary_encoder(encA,encB)
-        self.buttons(butClk,butDOUT,butDIN,butCS,but1,but2)
+
+        if spi:
+            logger.debug('SPI mode')
+            self.buttons_spi(spi_bus,butCS,but1,but2,btn_config, btn_skip_config)
+
+        else:
+            logger.debug('Software mode')
+            self.buttons(butClk,butDOUT,butDIN,butCS,but1,but2,btn_config, btn_skip_config)
 
 
     def normalize_value(self, value, min_value, max_value, target_range):
         normalized_value = 1 - (value - min_value) / (max_value - min_value)
         scaled_value = normalized_value * target_range
         return int(scaled_value)
-
 
     def rotary_encoder(self,encA,encB):
         # setup rotary encoder variables for pigpio
@@ -44,12 +51,12 @@ class controls:
                 self.last_gpio = gpio
                 if gpio == Enc_A and level == 1:
                     if self.last_B == 1:
-                        logger.warning('Volume down')
-                        self.controlQ.put({'control':'vol-down'})
+                        logger.debug('Menu down')
+                        self.controlQ.put({'control':'menu_down'})
                 elif gpio == Enc_B and level == 1:
                     if self.last_A == 1:
-                        logger.warning('Volume up')
-                        self.controlQ.put({'control':'vol-up'})
+                        logger.debug('Menu up')
+                        self.controlQ.put({'control':'menu_up'})
 
 
         # setup rotary encoder in pigpio
@@ -64,7 +71,7 @@ class controls:
         logger.info('Rotary thread start successfully, listening for turns')
 
 
-    def buttons(self,butClk,butDOUT,butDIN,butCS,but1,but2):
+    def buttons(self,butClk,butDOUT,butDIN,butCS,but1,but2,btn_config,btn_skip_config):
         # Define MCP3008 pins
         CLK = butClk # CLK
         DOUT = butDOUT # MISO
@@ -115,69 +122,90 @@ class controls:
 
             return value
 
-        # Main loop to continuously read data from MCP3008
-        # far more CPU effecient than PIGPIO or bitbangio from ADAFRUIT
+        # Adjust sleep time to reduce loop frequency
         while True:
+            # Read data from channels in the list
+            batch_data = [read_mcp3008(channel) for channel in channels]
 
-            # read data from channels in the list
-            for channel in channels:
-                data = read_mcp3008(channel)
-                logger.debug('Caught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
+            # Process batch data
+            for data, channel in zip(batch_data, channels):
+                data = self.normalize_value(data, 0, 1024, 24)
+                logger.debug('Normalized on Channel: {channel}: {data}'.format(channel=channel, data=data))
 
-                data = self.normalize_value(data, 0, 512, 16)
-                logger.debug('Normlaised on Channel: {channel}: {data}'.format(channel=channel, data=data))
-                # pause between caught button presses to stop double presses
-                time.sleep(0.25)
-                if channel == 0:
-                    if data == 0:
-                        logger.debug('Nothing pressed')
-                    elif data == 15:
-                        logger.debug('Power button')
-                        self.controlQ.put({'control':'power'})
-                    elif data == 4:
-                        logger.debug('Dimmer button')
-                        self.controlQ.put({'control':'dimmer'})
-                    elif data == 7:
-                        logger.debug('Memory button')
-                        self.controlQ.put({'control':'memory'})
-                    elif data == 6:
-                        logger.debug('Auto tuning button')
-                        self.controlQ.put({'control':'auto-tuning'})
-                    elif data == 9:
-                        logger.debug('Enter button')
-                        self.controlQ.put({'control':'enter'})
-                    elif data == 12:
-                        logger.debug('Function button')
-                        self.controlQ.put({'control':'functon-fm-mode'})
-                    elif data == 14:
-                        logger.debug('Band button')
-                        self.controlQ.put({'control':'band'})
-                    elif data == 10:
-                        logger.debug('Info button')
-                        self.controlQ.put({'control':'info'})
-                    else:
-                        logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
-
-                elif channel == 7:
-                    if data == 0:
-                        logger.debug('Nothing pressed')
-                    elif data == 15:
-                        logger.debug('Timer button')
-                        self.controlQ.put({'control':'timer'})
-                    elif data == 14:
-                        logger.debug('Time adj button')
-                        self.controlQ.put({'control':'time-adj'})
-                    elif data == 12:
-                        logger.debug('Daily button')
-                        self.controlQ.put({'control':'daily'})
-
-                    else:
-                        logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
-
+                # Check btn_skip_config first
+                for btn, (btn_channel, btn_data) in btn_skip_config.items():
+                    if btn_channel == channel and btn_data == data:
+                        break
                 else:
+                    # If not found in btn_skip_config, check btn_config
+                    for btn, (btn_channel, btn_data) in btn_config.items():
+                        if btn_channel == channel and btn_data == data:
+                            logger.debug('Pressed button:{btn} on channel:{btn_channel} with value:{btn_data}'.format(btn=btn, btn_channel=btn_channel, btn_data=btn_data))
+                            self.controlQ.put({'control': btn})
+                            break
+                    else:
                         logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
 
+            # Adjust sleep time to reduce loop frequency
+            time.sleep(0.25)
 
-            # Wait for a short period before reading again
-            time.sleep(0.05)
 
+    def buttons_spi(self,spi_bus,butCS,but1,but2,btn_config,btn_skip_config):
+        # Define MCP3008 pins
+        spi = spidev.SpiDev()
+        spi.open(0, spi_bus)  # Open SPI bus X, device 0
+        spi.max_speed_hz = 1000000  # Set SPI speed (1 MHz)
+
+        # Set up GPIO for chip select (CS)
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(butCS, GPIO.OUT)
+
+        # channels to read from MCP 3008
+        channels = [but1, but2]
+
+        # Define function to read data from MCP3008
+        def read_mcp3008(channel):
+            # Set CS low to start the conversion
+            GPIO.output(butCS, GPIO.LOW)
+
+            # MCP3008 expects a 10-bit command for single-ended mode
+            command = [1, 8 + channel << 4, 0]  # Start bit, single-ended, channel number (3 bits)
+            # Transmit data and receive the response
+            adc_data = spi.xfer2(command)
+            # Extract the ADC value from the received bytes
+            adc_value = ((adc_data[1] & 3) << 8) + adc_data[2]
+
+            # Set CS high to end the conversion
+            GPIO.output(butCS, GPIO.HIGH)
+
+            return adc_value
+
+        # Adjust sleep time to reduce loop frequency
+        while True:
+            # Read data from channels in the list
+            batch_data = [read_mcp3008(channel) for channel in channels]
+
+            # Process batch data
+            for data, channel in zip(batch_data, channels):
+                data = self.normalize_value(data, 0, 1024, 24)
+                logger.debug('Normalized on Channel: {channel}: {data}'.format(channel=channel, data=data))
+
+                # Check btn_skip_config first
+                for btn, (btn_channel, btn_data) in btn_skip_config.items():
+                    if btn_channel == channel and btn_data == data:
+                        break
+                else:
+                    # If not found in btn_skip_config, check btn_config
+                    for btn, (btn_channel, btn_data) in btn_config.items():
+                        if btn_channel == channel and btn_data == data:
+                            logger.debug('Pressed button:{btn} on channel:{btn_channel} with value:{btn_data}'.format(btn=btn, btn_channel=btn_channel, btn_data=btn_data))
+                            self.controlQ.put({'control': btn})
+                            break
+                    else:
+                        logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
+
+            # Adjust sleep time to reduce loop frequency
+            time.sleep(0.25)
+
+        # Close SPI connection when done
+        spi.close()
