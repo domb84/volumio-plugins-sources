@@ -161,6 +161,13 @@
           "value": ""
         },
         {
+          "id": "btn_back",
+          "type":"text",
+          "element": "input",
+          "label": "Resistance value for the Back button",
+          "value": ""
+        },
+        {
           "id": "btn_no_press_channel1",
           "type":"text",
           "element": "input",
