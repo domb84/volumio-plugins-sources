@@ -57,6 +57,7 @@ btn_config = {
     'btn_info': tuple(map(int, config_data['btn_info']['value'].split(','))),
     'btn_favourite': tuple(map(int, config_data['btn_favourite']['value'].split(','))),
     'btn_main_menu': tuple(map(int, config_data['btn_main_menu']['value'].split(','))),
+    'btn_back': tuple(map(int, config_data['btn_back']['value'].split(',')))
 }
 
 btn_skip_config = {

@@ -91,6 +91,10 @@
         "type": "text",
         "value": "0, 21"
     },
+    "btn_back": {
+        "type": "text",
+        "value": "7, 21"
+    },
     "btn_no_press_channel1": {
         "type": "text",
         "value": "0, 12"
