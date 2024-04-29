@@ -28,7 +28,6 @@ class menu_manager:
         self.lastMessageTime = datetime.now()
         self.messageTime = datetime.now()
         self.last_10_items = deque([],maxlen=10)
-        self.popped = None
 
         # log last message for deduplication
         self.lastMessage = ""
@@ -54,7 +53,7 @@ class menu_manager:
             'btn_info': lambda: self.volumioQ.put({'show': 'info'}),
             'btn_spotify': lambda: self.volumioQ.put({'button': 'spotify'}),
             'btn_favourite': self.add_favorite,
-            'btn_back': lambda: self.menuManagerQ.put({'menu': self.go_back()})
+            'btn_back': lambda: self.menuManagerQ.put({'menu': self.go_back(), 'remember':False})
         }
 
 
@@ -73,7 +72,7 @@ class menu_manager:
                             else:
                                 logging.warning("Unknown control action: " + action)
                         elif 'menu' in queueItem:
-                            self.build_menu(queueItem['menu'])
+                            self.build_menu(queueItem['menu'],queueItem.get('remember', True))
                         elif 'info' in queueItem:
                             self.show_track_info(queueItem['info'])
                         elif 'message' in queueItem:
@@ -94,18 +93,25 @@ class menu_manager:
 
             sleep(0.2)
 
-    def remember(self, item):
-        # Append the new item to the deque
-        if len(self.last_10_items) > 0:
-            if item != self.popped:
-                self.last_10_items.appendleft(item)
-        else:
-            self.last_10_items.appendleft(item)
+
+    def remember(self):
+        # save the last menu for history
+        menu = []
+        for item in self.menu.items:
+            menuItem = item.__getattribute__('args')
+            logger.debug(item.__getattribute__('args'))
+            # Create a dictionary for the current item
+            saveData = {
+                'position': menuItem[0],
+                'title': menuItem[1],
+                'uri': menuItem[2],
+                'service': menuItem[3]
+            }
+            menu.append(saveData)
+        self.last_10_items.appendleft(json.dumps(menu))
 
     def go_back(self):
-        if len(self.last_10_items) > 0:
-            logger.warning(self.last_10_items)
-            self.popped = self.last_10_items[0]
+        if len(self.last_10_items) > 1:
             return self.last_10_items.popleft()
         else:
             return None
@@ -175,6 +181,7 @@ class menu_manager:
         else:
             logger.debug("Skipping duplicate message")
 
+
     def show_track_info(self, input):
         try:
             logger.debug("Track info args: " + str(input))
@@ -229,47 +236,48 @@ class menu_manager:
                 logger.error("Failed to process message: " + str(e))
 
 
-    def build_menu(self, input):
+    def build_menu(self, input, remember=True):
+        if input:
+            logger.debug("Message menu: " + str(input))
+            input = json.loads(input)
 
-        currentMenu = input
+            # save last rendered menu for back button
+            if remember:
+                logger.debug("Saving last menu")
+                self.remember()
 
-        logger.debug("Message menu: " + str(input))
-        input = json.loads(input)
+            # clear the menu
+            if self.menu != None:
+                self.menu.items = []
+
+            # parse input
+            counter = 0
+            for i in input:
+                logger.debug("Menu input: " + str(i))
+                try:
+                    buttonName = i.get('title', None)
+                    buttonLink = i.get('uri', None)
+                    buttonService = i.get('service', None)
+
+                    if buttonService:
+                        menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, buttonService])
+                    # genres in webradio do not seem to return it's service type, so capture this and resolve
+                    elif not buttonService and re.match('radio(\/.+)?', buttonLink):
+                        menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, 'webradio'])
+                    else:
+                        menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink])
+                    # add to main menu
+                    self.menu.append_item(menuItem)
+                    counter += 1
+
+                except Exception as e:
+                    logger.error("Failed to process menu input: " +str(e))
+            
+            # catch if the submenu sets the index too high, else menu will fail as it cannot select an item
+            if self.menu.current_option > (len(self.menu.items) - 1):
+                self.menu.current_option = (len(self.menu.items) - 1)
+
         
-        # clear the menu
-        if self.menu != None:
-            self.menu.items = []
-
-        # parse input
-        counter = 0
-        for i in input:
-            logger.debug("Menu input: " + str(i))
-            try:
-                buttonName = i.get('title', None)
-                buttonLink = i.get('uri', None)
-                buttonService = i.get('service', None)
-
-                if buttonService:
-                    menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, buttonService])
-                # genres in webradio do not seem to return it's service type, so capture this and resolve
-                elif not buttonService and re.match('radio(\/.+)?', buttonLink):
-                    menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, 'webradio'])
-                else:
-                    menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink])
-                # add to main menu
-                self.menu.append_item(menuItem)
-                counter += 1
-
-            except Exception as e:
-                logger.error("Failed to process menu input: " +str(e))
-        
-        # catch if the submenu sets the index too high, else menu will fail as it cannot select an item
-        if self.menu.current_option > (len(self.menu.items) - 1):
-            self.menu.current_option = (len(self.menu.items) - 1)
-
-        
-        # save last rendered menu for back button
-        self.remember(currentMenu)
 
         # return rendered menu
         # if you do not return the menu it will render the original one again
