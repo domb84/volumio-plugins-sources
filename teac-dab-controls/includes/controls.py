@@ -134,15 +134,63 @@ class controls:
 
                 # Check btn_skip_config first
                 for btn, (btn_channel, btn_data) in btn_skip_config.items():
-                    if btn_channel == channel and btn_data == data:
-                        break
+                    btn_data_values = btn_data.split("-")
+                    # Check if there are exactly two parts after splitting
+                    if len(btn_data_values) == 2:
+                        # sort values
+                        btn_data_values.sort()
+                        lower_value = int(btn_data_values[0])
+                        upper_value = int(btn_data_values[1])
+                        btn_channel = int(btn_channel)
+
+                        logger.debug('Checking: {btn_channel}: {lower_value}-{upper_value}'.format(btn_channel=btn_channel,lower_value=lower_value,upper_value=upper_value))
+                        
+                        # check for button values in range
+                        if btn_channel == channel and lower_value <= data <= upper_value:
+                            break
+
+                    # check for single button value
+                    else:
+                        btn_data = int(btn_data_values[0])
+                        btn_channel = int(btn_channel)
+
+                        logger.debug('Checking: {btn_channel}: {btn_data}'.format(btn_channel=btn_channel,btn_data=btn_data))
+
+                        if btn_channel == channel and btn_data == data:
+                            break
+
                 else:
                     # If not found in btn_skip_config, check btn_config
                     for btn, (btn_channel, btn_data) in btn_config.items():
-                        if btn_channel == channel and btn_data == data:
-                            logger.debug('Pressed button:{btn} on channel:{btn_channel} with value:{btn_data}'.format(btn=btn, btn_channel=btn_channel, btn_data=btn_data))
-                            self.controlQ.put({'control': btn})
-                            break
+                        btn_data_values = btn_data.split("-")
+                        # Check if there are exactly two parts after splitting
+                        if len(btn_data_values) == 2:
+                            # sort values
+                            btn_data_values.sort()
+                            lower_value = int(btn_data_values[0])
+                            upper_value = int(btn_data_values[1])
+                            btn_channel = int(btn_channel)
+
+                            logger.debug('Checking: {btn_channel}: {lower_value}-{upper_value}'.format(btn_channel=btn_channel,lower_value=lower_value,upper_value=upper_value))
+
+                            # check for button values in range
+                            if btn_channel == channel and lower_value <= data <= upper_value:
+                                logger.debug('Pressed button:{btn} on channel:{channel} with value:{data}'.format(btn=btn, channel=channel, data=data))
+                                self.controlQ.put({'control': btn})
+                                break
+
+                        # check for single button value
+                        else:
+                            btn_data = int(btn_data_values[0])
+                            btn_channel = int(btn_channel)
+
+                            logger.debug('Checking: {btn_channel}: {btn_data}'.format(btn_channel=btn_channel,btn_data=btn_data))
+
+                            if btn_channel == channel and btn_data == data:
+                                logger.debug('Pressed button:{btn} on channel:{channel} with value:{data}'.format(btn=btn, channel=channel, data=data))
+                                self.controlQ.put({'control': btn})
+                                break
+
                     else:
                         logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
 
@@ -192,15 +240,42 @@ class controls:
 
                 # Check btn_skip_config first
                 for btn, (btn_channel, btn_data) in btn_skip_config.items():
+                    logger.debug('Checking: {btn_channel}: {btn_data}'.format(btn_channel=btn_channel,btn_data=btn_data))
+
                     if btn_channel == channel and btn_data == data:
                         break
                 else:
                     # If not found in btn_skip_config, check btn_config
                     for btn, (btn_channel, btn_data) in btn_config.items():
-                        if btn_channel == channel and btn_data == data:
-                            logger.debug('Pressed button:{btn} on channel:{btn_channel} with value:{btn_data}'.format(btn=btn, btn_channel=btn_channel, btn_data=btn_data))
-                            self.controlQ.put({'control': btn})
-                            break
+                        btn_data_values = btn_data.split("-")
+                        # Check if there are exactly two parts after splitting
+                        if len(btn_data_values) == 2:
+                            # sort values
+                            btn_data_values.sort()
+                            lower_value = int(btn_data_values[0])
+                            upper_value = int(btn_data_values[1])
+                            btn_channel = int(btn_channel)
+
+                            logger.debug('Checking: {btn_channel}: {lower_value}-{upper_value}'.format(btn_channel=btn_channel,lower_value=lower_value,upper_value=upper_value))
+
+                            # check for button values in range
+                            if btn_channel == int(channel) and lower_value <= data <= upper_value:
+                                logger.debug('Pressed button:{btn} on channel:{channel} with value:{data}'.format(btn=btn, channel=channel, data=data))
+                                self.controlQ.put({'control': btn})
+                                break
+
+                        # check for single button value
+                        else:
+                            btn_data = int(btn_data_values[0])
+                            btn_channel = int(btn_channel)
+
+                            logger.debug('Checking: {btn_channel}: {btn_data}'.format(btn_channel=btn_channel,btn_data=btn_data))
+
+                            if btn_channel == int(channel) and btn_data == data:
+                                logger.debug('Pressed button:{btn} on channel:{channel} with value:{data}'.format(btn=btn, channel=channel, data=data))
+                                self.controlQ.put({'control': btn})
+                                break
+
                     else:
                         logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
 

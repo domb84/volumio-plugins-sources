@@ -50,19 +50,19 @@ spi = bool(config_data['spi']['value'])
 
 # read button digital values
 btn_config = {
-    'btn_enter': tuple(map(int, config_data['btn_enter']['value'].split(','))),
-    'btn_radio': tuple(map(int, config_data['btn_radio']['value'].split(','))),
-    'btn_spotify': tuple(map(int, config_data['btn_spotify']['value'].split(','))),
-    'btn_stop': tuple(map(int, config_data['btn_stop']['value'].split(','))),
-    'btn_info': tuple(map(int, config_data['btn_info']['value'].split(','))),
-    'btn_favourite': tuple(map(int, config_data['btn_favourite']['value'].split(','))),
-    'btn_main_menu': tuple(map(int, config_data['btn_main_menu']['value'].split(','))),
-    'btn_back': tuple(map(int, config_data['btn_back']['value'].split(',')))
+    'btn_enter': tuple(map(str, config_data['btn_enter']['value'].split(','))),
+    'btn_radio': tuple(map(str, config_data['btn_radio']['value'].split(','))),
+    'btn_spotify': tuple(map(str, config_data['btn_spotify']['value'].split(','))),
+    'btn_stop': tuple(map(str, config_data['btn_stop']['value'].split(','))),
+    'btn_info': tuple(map(str, config_data['btn_info']['value'].split(','))),
+    'btn_favourite': tuple(map(str, config_data['btn_favourite']['value'].split(','))),
+    'btn_main_menu': tuple(map(str, config_data['btn_main_menu']['value'].split(','))),
+    'btn_back': tuple(map(str, config_data['btn_back']['value'].split(',')))
 }
 
 btn_skip_config = {
-    'btn_no_press_channel1': tuple(map(int, config_data['btn_no_press_channel1']['value'].split(','))),
-    'btn_no_press_channel2': tuple(map(int, config_data['btn_no_press_channel2']['value'].split(',')))
+    'btn_no_press_channel1': tuple(map(str, config_data['btn_no_press_channel1']['value'].split(','))),
+    'btn_no_press_channel2': tuple(map(str, config_data['btn_no_press_channel2']['value'].split(',')))
 }
 
 # Access rotary encoder configuration values
