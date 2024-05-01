@@ -249,7 +249,7 @@ class menu_manager:
         if isinstance(input, list):
             input = {'menu': input, 'index': 0}
 
-        index = input.get('index', False)
+        index = input.get('index', 0)
         menu = input.get('menu')
 
         # save last rendered menu for back button
@@ -260,6 +260,13 @@ class menu_manager:
         # clear the menu
         if self.menu != None:
             self.menu.items = []
+
+        # sort menu by type if an index isnt set
+        if index == 0:
+            # Sort the list of dictionaries first by "type" key
+            menu = sorted(menu, key=lambda x: (x.get('type', '')))
+            # Sort the list of dictionaries first by "type" key and then by "title" key
+            # menu = sorted(menu, key=lambda x: (x.get('type', ''), x.get('title', '')))
 
         # parse menu
         counter = 0
