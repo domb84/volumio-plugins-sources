@@ -97,6 +97,7 @@ class menu_manager:
     def remember(self):
         # save the last menu for history
         menu = []
+        index = self.menu.current_option
         for item in self.menu.items:
             menuItem = item.__getattribute__('args')
             logger.debug(item.__getattribute__('args'))
@@ -108,6 +109,9 @@ class menu_manager:
                 'service': menuItem[3]
             }
             menu.append(saveData)
+
+        menu = {'menu': menu, 'index':index}
+        
         self.last_10_items.appendleft(json.dumps(menu))
 
     def go_back(self):
@@ -237,47 +241,50 @@ class menu_manager:
 
 
     def build_menu(self, input, remember=True):
-        if input:
-            logger.debug("Message menu: " + str(input))
-            input = json.loads(input)
 
-            # save last rendered menu for back button
-            if remember:
-                logger.debug("Saving last menu")
-                self.remember()
-
-            # clear the menu
-            if self.menu != None:
-                self.menu.items = []
-
-            # parse input
-            counter = 0
-            for i in input:
-                logger.debug("Menu input: " + str(i))
-                try:
-                    buttonName = i.get('title', None)
-                    buttonLink = i.get('uri', None)
-                    buttonService = i.get('service', None)
-
-                    if buttonService:
-                        menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, buttonService])
-                    # genres in webradio do not seem to return it's service type, so capture this and resolve
-                    elif not buttonService and re.match('radio(\/.+)?', buttonLink):
-                        menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, 'webradio'])
-                    else:
-                        menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink])
-                    # add to main menu
-                    self.menu.append_item(menuItem)
-                    counter += 1
-
-                except Exception as e:
-                    logger.error("Failed to process menu input: " +str(e))
-            
-            # catch if the submenu sets the index too high, else menu will fail as it cannot select an item
-            if self.menu.current_option > (len(self.menu.items) - 1):
-                self.menu.current_option = (len(self.menu.items) - 1)
-
+        logger.debug("Message menu: " + str(input))
+        input = json.loads(input)
         
+        # check if the instance is a list (i.e. the input from volumio)
+        if isinstance(input, list):
+            input = {'menu': input, 'index': 0}
+
+        index = input.get('index', False)
+        menu = input.get('menu')
+
+        # save last rendered menu for back button
+        if remember:
+            logger.debug("Saving last menu")
+            self.remember()
+
+        # clear the menu
+        if self.menu != None:
+            self.menu.items = []
+
+        # parse menu
+        counter = 0
+        for i in menu:
+            logger.debug("Menu input: " + str(i))
+            try:
+                buttonName = i.get('title', None)
+                buttonLink = i.get('uri', None)
+                buttonService = i.get('service', None)
+
+                if buttonService:
+                    menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, buttonService])
+                # genres in webradio do not seem to return it's service type, so capture this and resolve
+                elif not buttonService and re.match('radio(\/.+)?', buttonLink):
+                    menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, 'webradio'])
+                else:
+                    menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink])
+                # add to main menu
+                self.menu.append_item(menuItem)
+                counter += 1
+
+            except Exception as e:
+                logger.error("Failed to process menu input: " +str(e))
+        
+        self.menu.current_option = index
 
         # return rendered menu
         # if you do not return the menu it will render the original one again
