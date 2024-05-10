@@ -214,7 +214,7 @@ class volumio:
 
     def _on_push_sources(self, *args):
         try:
-            logger.debug(args)
+            # logger.debug(args)
 
             sources_list = list()
 
@@ -233,12 +233,16 @@ class volumio:
                             sources_list.append({
                                 'title': source.get('title', None),
                                 'uri': source.get('uri', None),
-                                'service': source.get('service', None)
+                                'service': source.get('service', None),
+                                'type': source.get('type', None),
+                                'position': source.get('position', None)
                             })
                         else:
                             sources_list.append({
                                 'title': source.get('title', None),
-                                'uri': source.get('uri', None)
+                                'uri': source.get('uri', None),
+                                'type': source.get('type', None),
+                                'position': source.get('position', None)
                             })
 
                     except Exception as e:
