@@ -188,13 +188,19 @@ class menu_manager:
 
     def show_track_info(self, input):
         try:
+
+            statusSymbols = {'play':'Now playing','stop':'Stopped','pause':'Paused'}
+
             logger.debug("Track info args: " + str(input))
             input = json.loads(input)
 
             for i in input:
                 logger.debug("Track info input: " + str(i))
-
-                status = i['status']
+                
+                if i['status'] in statusSymbols:
+                    status = statusSymbols[i['status']]
+                else:
+                    status = i['status']
                 artist = i['artist']
                 title = i['title']
                 album = i['album']
@@ -242,6 +248,9 @@ class menu_manager:
 
     def build_menu(self, input, remember=True):
 
+        # possible types that are folders
+        folderTypes = ['folder', '-category', '-favourites']
+
         logger.debug("Message menu: " + str(input))
         input = json.loads(input)
         
@@ -250,32 +259,48 @@ class menu_manager:
             input = {'menu': input, 'index': 0}
 
         index = input.get('index', 0)
-        menu = input.get('menu')
+        menu = input.get('menu', None)
 
         # save last rendered menu for back button
         if remember:
             logger.debug("Saving last menu")
             self.remember()
 
-        # clear the menu
-        if self.menu != None:
-            self.menu.items = []
+        # clear the menu if the next menu has some items
+        if menu:
+            if self.menu != None:
+                self.menu.items = []
+        else:
+            return(self.display_message("No items in menu"))
 
-        # sort menu by type if an index isnt set
-        if index == 0:
-            # Sort the list of dictionaries first by "type" key
-            menu = sorted(menu, key=lambda x: (x.get('type', '')))
-            # Sort the list of dictionaries first by "type" key and then by "title" key
-            # menu = sorted(menu, key=lambda x: (x.get('type', ''), x.get('title', '')))
+        # sort menu by type if it wasnt sorted already
+        if menu[0].get('position', None) != None:
+            menu = sorted(menu, key=lambda x: (
+                (x.get('position'))  # Sort by position
+            ))
+        else:
+            menu = sorted(menu, key=lambda x: (
+                (any(x.get('type', '').endswith(folder_type) for folder_type in folderTypes),  # Check if any folderType matches the end of the 'type'
+                x.get('title', '').strip().lower()  # Sort by title in ascending order
+            )))
 
         # parse menu
         counter = 0
+
         for i in menu:
             logger.debug("Menu input: " + str(i))
             try:
                 buttonName = i.get('title', None)
                 buttonLink = i.get('uri', None)
                 buttonService = i.get('service', None)
+                buttonType = i.get('type', None)
+
+                if buttonName == "":
+                    buttonName = f"Untitled {counter}"
+
+                if buttonType:
+                    if any(buttonType.endswith(folder_type) for folder_type in folderTypes):
+                        buttonName = f"+{buttonName}"
 
                 if buttonService:
                     menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, buttonService])
