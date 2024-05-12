@@ -192,14 +192,17 @@ class volumio:
 
             # if theres too many missing items log it and skip the rest
             if status == 'play' and all_none:
-                logger.debug("Now playing item missing state")
+                logger.warning("Now playing item missing state")
             # check if we're not actually playing anything.
             # This happens between every track change so don't show anything in this instance else we spam the display with 'stop' events.
             elif status != 'play' and all_none:
-                logger.debug("Nothing playing and no information")
-            # state hasn't changed
+                message = [{'message':'No media is playing'}]
+                message=json.dumps(message)
+                self.menuManagerQ.put({'message':message})
+
             # elif clean_state_list == self.last_state_list:
             #     logger.debug("State not changed")
+
             else:
                 result = json.dumps(clean_state_list)
                 self.last_state_list = clean_state_list

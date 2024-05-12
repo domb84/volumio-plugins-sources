@@ -129,7 +129,7 @@ class controls:
 
             # Process batch data
             for data, channel in zip(batch_data, channels):
-                data = self.normalize_value(data, 0, 1024, 24)
+                data = self.normalize_value(data, 0, 1024, 32)
                 logger.debug('Normalized on Channel: {channel}: {data}'.format(channel=channel, data=data))
 
                 # Check btn_skip_config first
@@ -235,7 +235,7 @@ class controls:
 
             # Process batch data
             for data, channel in zip(batch_data, channels):
-                data = self.normalize_value(data, 0, 1024, 24)
+                data = self.normalize_value(data, 0, 1024, 32)
                 logger.debug('Normalized on Channel: {channel}: {data}'.format(channel=channel, data=data))
 
                 # Check btn_skip_config first
