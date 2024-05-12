@@ -229,18 +229,31 @@ class menu_manager:
 
 
     def show_message(self, input):
+        ## Example
+        # message = []
+        # message.append({
+        #     'type': None,
+        #     'title': None,
+        #     'message': 'No media is playing'
+        # })
+        # message = json.dumps(message)
+        # self.menuManagerQ.put({'message':message})
+
         logger.debug("Message input: " + str(input))
         input = json.loads(input)
 
         for i in input:
             logger.debug("Message input: " + str(i))
             try:
-                type = i['type']
-                title = i['title']
-                message = i['message']
+                type = i.get('type', None)
+                title = i.get('title', None)
+                message = i.get('message', None)
 
-                message = "{title}\n{message}".format(title=title, message=message)
-
+                if title:
+                    message = "{title}\n{message}".format(title=title, message=message)
+                else:
+                    message = message
+                    
                 self.display_message(message, autoscroll=True)
             except Exception as e:
                 logger.error("Failed to process message: " + str(e))

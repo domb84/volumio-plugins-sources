@@ -65,42 +65,46 @@
     },
     "btn_enter": {
         "type": "text",
-        "value": "0, 18-19"
+        "value": "0, 24-25"
     },
     "btn_radio": {
         "type": "text",
-        "value": "0, 22"
+        "value": "0, 30"
     },
     "btn_spotify": {
         "type": "text",
-        "value": "0, 16"
+        "value": "0, 12"
     },
     "btn_stop": {
         "type": "text",
-        "value": "0, 23"
+        "value": "0, 31"
     },
     "btn_info": {
         "type": "text",
-        "value": "0, 20"
+        "value": "0, 26-27"
     },
     "btn_favourite": {
         "type": "text",
-        "value": "0, 17"
+        "value": "0, 23"
     },
     "btn_main_menu": {
         "type": "text",
-        "value": "0, 21"
+        "value": "0, 28"
     },
     "btn_back": {
         "type": "text",
-        "value": "7, 21"
+        "value": "0, 21-22"
+    },
+    "btn_dimmer": {
+        "type": "text",
+        "value": "0, 20"
     },
     "btn_no_press_channel1": {
         "type": "text",
-        "value": "0, 12"
+        "value": "0, 16"
     },
     "btn_no_press_channel2": {
         "type": "text",
-        "value": "7, 12"
+        "value": "7, 16"
     }
 }
