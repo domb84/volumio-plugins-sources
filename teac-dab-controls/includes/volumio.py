@@ -78,7 +78,7 @@ class volumio:
 
 
                             # else list the items below it 
-                            elif item['button'] == 'power':
+                            elif item['button'] == 'stop':
                                 self.stop()
                                 logger.debug(f"{item}")
 

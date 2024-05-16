@@ -1,6 +1,6 @@
 {
 	"name": "teac-dab-controls",
-	"version": "2.0.9",
+	"version": "2.0.10",
 	"description": "Read buttons and rotary encoder from a TEAC T-H300DAB mkII front panel",
 	"main": "index.js",
 	"scripts": {
@@ -22,7 +22,7 @@
 			"buster"
 		],
 		"details": "Read buttons and rotary encoder from a TEAC T-H300DAB mkII front panel",
-		"changelog": "Add support for SPI with software CS"
+		"changelog": "Improved menu systen. Various fixes."
 	},
 	"engines": {
 		"node": ">=14.15.4",

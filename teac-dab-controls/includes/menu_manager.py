@@ -46,7 +46,7 @@ class menu_manager:
             'btn_main_menu': lambda: self.volumioQ.put({'button': 'menu'}),
             'btn_enter': self.menu.processEnter,
             'btn_radio': lambda: self.volumioQ.put({'button': 'radio'}),
-            'btn_stop': lambda: self.volumioQ.put({'button': 'power'}),
+            'btn_stop': lambda: self.volumioQ.put({'button': 'stop'}),
             'btn_info': lambda: self.volumioQ.put({'show': 'info'}),
             'btn_spotify': lambda: self.volumioQ.put({'button': 'spotify'}),
             'btn_favourite': self.add_favorite,
@@ -69,7 +69,8 @@ class menu_manager:
                             else:
                                 logging.warning("Unknown control action: " + action)
                         elif 'menu' in queueItem:
-                            self.build_menu(queueItem['menu'],queueItem.get('remember', True))
+                            if queueItem['menu']:
+                                self.build_menu(queueItem['menu'],queueItem.get('remember', True))
                         elif 'info' in queueItem:
                             self.show_track_info(queueItem['info'])
                         elif 'message' in queueItem:
