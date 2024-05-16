@@ -34,11 +34,11 @@ class volumio:
 
         # define callback functions
         self.sio.on('pushState', self._on_push_state)
-        self.sio.on('pushBrowseLibrary', self._on_push_sources)
+        self.sio.on('pushBrowseLibrary', self._onPushBrowseLibrary)
         self.sio.on('addToFavourites', self._on_response)
         self.sio.on('pushToastMessage', self._on_toast)
         self.sio.on('urifavourites', self._on_response)
-        self.sio.on('pushBrowseSources', self._on_push_library)
+        self.sio.on('pushBrowseSources', self._onPushBrowseSources)
 
         # setup globals
         self.last_state_list = list()
@@ -225,7 +225,7 @@ class volumio:
             logger.error("Failed to processes incoming state: " + str(e))
             
 
-    def _on_push_sources(self, *args):
+    def _onPushBrowseLibrary(self, *args):
         # logger.debug(args)
 
         sources_list = list()
@@ -239,27 +239,19 @@ class volumio:
                 sources = lists['items']
 
                 for source in sources:
-                    if 'service' in source:
-                        sources_list.append({
-                            'title': source.get('title', None),
-                            'uri': source.get('uri', None),
-                            'service': source.get('service', None),
-                            'type': source.get('type', None),
-                            'position': source.get('position', None)
-                        })
-                    else:
-                        sources_list.append({
-                            'title': source.get('title', None),
-                            'uri': source.get('uri', None),
-                            'type': source.get('type', None),
-                            'position': source.get('position', None)
-                        })
+                    sources_list.append({
+                        'title': source.get('title', None),
+                        'uri': source.get('uri', None),
+                        'service': source.get('service', None),
+                        'type': source.get('type', None),
+                        'position': source.get('position', None)
+                    })
         
         result = json.dumps(sources_list)
         self.menuManagerQ.put({'menu':result})
 
         
-    def _on_push_library(self, *args):
+    def _onPushBrowseSources(self, *args):
     
         sources_list = list()
 
@@ -283,31 +275,27 @@ class volumio:
             sources = lists['items']
 
             for source in sources:
-                if 'service' in source:
-                    sources_list.append({
-                        'title': source.get('title', None),
-                        'uri': source.get('uri', None),
-                        'service': source.get('service', None),
-                        'type': source.get('type', None),
-                        'position': source.get('position', None)
-                    })
-                else:
-                    sources_list.append({
-                        'title': source.get('title', None),
-                        'uri': source.get('uri', None),
-                        'type': source.get('type', None),
-                        'position': source.get('position', None)
-                    })
+                # Account for items with no menu type set by using the uri instead (fixes Favorites having no type)
+                if source.get('type', None).strip() == '':
+                    menuType = source.get('uri', None)
+
+                sources_list.append({
+                    'title': source.get('title', None),
+                    'uri': source.get('uri', None),
+                    'service': source.get('service', None),
+                    'type': menuType,
+                    'position': source.get('position', None)
+                })
 
         result = json.dumps(sources_list)
         self.menuManagerQ.put({'menu':result})
 
     def getBrowseSources(self):
-        self._send('getBrowseSources', callback=self._on_push_library)
+        self._send('getBrowseSources')
 
     def get_sources(self, link):
         logger.debug("Get sources from %s" % link)
-        self._send('browseLibrary', {'uri':link}, callback=self._on_push_sources)
+        self._send('browseLibrary', {'uri':link}, callback=self._onPushBrowseLibrary)
 
     def add_favourite(self, title, link, service):
         logger.debug(f"Add {title} from {link} to {service} favourites")
