@@ -22,7 +22,7 @@ class volumio:
 
 
         self.ws_api = "http://localhost:3000"
-        self.sio = socketio.Client(logger=True, engineio_logger=True,reconnection=True)
+        self.sio = socketio.Client(logger=False, engineio_logger=False,reconnection=True)
         # self.sio.connect(url=self.ws_api)
 
         # use retry from the retrying module to reconnect until it's up
@@ -34,16 +34,14 @@ class volumio:
 
         # define callback functions
         self.sio.on('pushState', self._on_push_state)
-        self.sio.on('pushBrowseLibrary', self._on_push_sources)
+        self.sio.on('pushBrowseLibrary', self._onPushBrowseLibrary)
         self.sio.on('addToFavourites', self._on_response)
         self.sio.on('pushToastMessage', self._on_toast)
         self.sio.on('urifavourites', self._on_response)
+        self.sio.on('pushBrowseSources', self._onPushBrowseSources)
 
         # setup globals
         self.last_state_list = list()
-
-        logger.debug("Get radio sources")
-        self.get_sources('radio')
 
         queues = [self.volumioQ]
 
@@ -56,21 +54,33 @@ class volumio:
                         # parse uri
                         if 'show' in item:
                             if item['show'] == 'info':
-                                logger.debug("Hit info")
                                 self.get_state()
+                                logger.debug(f"{item}")
 
                         elif 'button' in item:
+                            if item['button'] == 'menu':
+                                self.getBrowseSources()
+                                logger.debug(f"{item}")
+
                             # if it's a stream, play it
                             if re.match('(https|http|spotify:track):(\/\/)?.+(\/)?.+', item['button']):
                                 self.play(item['button'])
+                                logger.debug(f"{item}")
 
                             # else list the items below it 
                             elif re.match('(radio|spotify)(\/.+)?', item['button']):
                                 self.get_sources(item['button'])
+                                logger.debug(f"{item}")
+
+                            elif re.match('([a-zA-Z0-9_-])', item['button']):
+                                self.get_sources(item['button'])
+                                logger.debug(f"{item}")
+
 
                             # else list the items below it 
                             elif item['button'] == 'power':
                                 self.stop()
+                                logger.debug(f"{item}")
 
                             self.volumioQ.task_done()
 
@@ -215,51 +225,77 @@ class volumio:
             logger.error("Failed to processes incoming state: " + str(e))
             
 
-    def _on_push_sources(self, *args):
-        try:
-            # logger.debug(args)
+    def _onPushBrowseLibrary(self, *args):
+        # logger.debug(args)
 
-            sources_list = list()
+        sources_list = list()
 
-            # Some sources are a mix of list items and sorces, so iterate over all of them
-            # use the below to revert
-            # sources = args[0]['navigation']['lists'][0]['items']
+        # Some sources are a mix of list items and sources, so iterate over all of them
+        main_source = args[0].get('navigation', {}).get('lists', [])
 
-            main_source = args[0]['navigation']['lists']
+        if main_source:
             for lists in main_source:
 
                 sources = lists['items']
 
                 for source in sources:
-                    try:
-                        if 'service' in source:
-                            sources_list.append({
-                                'title': source.get('title', None),
-                                'uri': source.get('uri', None),
-                                'service': source.get('service', None),
-                                'type': source.get('type', None),
-                                'position': source.get('position', None)
-                            })
-                        else:
-                            sources_list.append({
-                                'title': source.get('title', None),
-                                'uri': source.get('uri', None),
-                                'type': source.get('type', None),
-                                'position': source.get('position', None)
-                            })
+                    sources_list.append({
+                        'title': source.get('title', None),
+                        'uri': source.get('uri', None),
+                        'service': source.get('service', None),
+                        'type': source.get('type', None),
+                        'position': source.get('position', None)
+                    })
+        
+        result = json.dumps(sources_list)
+        self.menuManagerQ.put({'menu':result})
 
-                    except Exception as e:
-                        logger.error("Failed to process source: " + str(source))
-            
-            result = json.dumps(sources_list)
-            self.menuManagerQ.put({'menu':result})
-        except Exception as e:
-            logger.error("Failed to processes incoming source: " + str(e))
+        
+    def _onPushBrowseSources(self, *args):
+    
+        sources_list = list()
 
+        items = args[0]
+        # Rename fields
+        for item in items:
+            item['title'] = item.pop('name', None)
+            item['type'] = item.pop('plugin_type', None)
+            item['service'] = item.pop('plugin_name', None)
+
+        main_source = [{
+        "availableListViews":[
+            "grid",
+            "list"
+        ],
+        "items":items
+        }]
+
+        for lists in main_source:
+
+            sources = lists['items']
+
+            for source in sources:
+                # Account for items with no menu type set by using the uri instead (fixes Favorites having no type)
+                if source.get('type', None).strip() == '':
+                    menuType = source.get('uri', None)
+
+                sources_list.append({
+                    'title': source.get('title', None),
+                    'uri': source.get('uri', None),
+                    'service': source.get('service', None),
+                    'type': menuType,
+                    'position': source.get('position', None)
+                })
+
+        result = json.dumps(sources_list)
+        self.menuManagerQ.put({'menu':result})
+
+    def getBrowseSources(self):
+        self._send('getBrowseSources')
 
     def get_sources(self, link):
         logger.debug("Get sources from %s" % link)
-        self._send('browseLibrary', {'uri':link}, callback=self._on_push_sources)
+        self._send('browseLibrary', {'uri':link}, callback=self._onPushBrowseLibrary)
 
     def add_favourite(self, title, link, service):
         logger.debug(f"Add {title} from {link} to {service} favourites")
@@ -282,7 +318,7 @@ class volumio:
 
     
     def play(self, uri):
-        self._send('clearQueue')
+        # self._send('clearQueue')
         if re.match('(https|http):\/\/.+\/.+', uri):
             self._send('addPlay', {'status':'play', 'service':'webradio', 'uri':uri})
         elif re.match('spotify:track:.+', uri):

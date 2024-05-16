@@ -32,21 +32,18 @@ class menu_manager:
         # log last message for deduplication
         self.lastMessage = ""
 
-        # function menu
-        functionMenu = '[{"title":"Radio","uri":"radio","service":"webradio"},{"title":"Spotify","uri":"spotify","service":"spotify"}]'
-
         # init menu
         self.menu = RpiLCDMenu(lcdRS, lcdE, [lcdD4, lcdD5, lcdD6, lcdD7], scrolling_menu=False)
         self.menu.message(('Initialising...').upper(), autoscroll=True)
 
-        # render function mentu
-        self.build_menu(functionMenu)
+        # render main menu
+        self.volumioQ.put({'button': 'menu'})
 
         # define control actions
         self.control_actions = {
             'menu_up': self.menu.processDown,
             'menu_down': self.menu.processUp,
-            'btn_main_menu': lambda: self.menuManagerQ.put({'menu': functionMenu}),
+            'btn_main_menu': lambda: self.volumioQ.put({'button': 'menu'}),
             'btn_enter': self.menu.processEnter,
             'btn_radio': lambda: self.volumioQ.put({'button': 'radio'}),
             'btn_stop': lambda: self.volumioQ.put({'button': 'power'}),
@@ -98,15 +95,17 @@ class menu_manager:
         # save the last menu for history
         menu = []
         index = self.menu.current_option
+
         for item in self.menu.items:
             menuItem = item.__getattribute__('args')
-            logger.debug(item.__getattribute__('args'))
+            # logger.debug(item.__getattribute__('args'))
             # Create a dictionary for the current item
             saveData = {
                 'position': menuItem[0],
                 'title': menuItem[1],
                 'uri': menuItem[2],
-                'service': menuItem[3]
+                # Return None if theres no service
+                'service': next(iter(menuItem[3:]), None)
             }
             menu.append(saveData)
 
@@ -262,7 +261,7 @@ class menu_manager:
     def build_menu(self, input, remember=True):
 
         # possible types that are folders
-        folderTypes = ['folder', '-category', '-favourites']
+        folderTypes = ['folder', '-category', 'favourites', 'playlist', 'music_service']
 
         logger.debug("Message menu: " + str(input))
         input = json.loads(input)
@@ -321,7 +320,7 @@ class menu_manager:
                 elif not buttonService and re.match('radio(\/.+)?', buttonLink):
                     menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, 'webradio'])
                 else:
-                    menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink])
+                    menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, None])
                 # add to main menu
                 self.menu.append_item(menuItem)
                 counter += 1
