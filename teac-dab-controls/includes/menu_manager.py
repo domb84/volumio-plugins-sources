@@ -314,9 +314,6 @@ class menu_manager:
                     if any(buttonType.endswith(folder_type) for folder_type in folderTypes):
                         buttonName = f"+{buttonName}"
 
-                if buttonLink == "favourites":
-                    buttonService = "favourites"
-
                 if buttonService:
                     menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, buttonService])
                 # genres in webradio do not seem to return it's service type, so capture this and resolve
