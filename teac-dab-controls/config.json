@@ -69,7 +69,7 @@
     },
     "btn_radio": {
         "type": "text",
-        "value": "0, 30"
+        "value": "0, 29-30"
     },
     "btn_spotify": {
         "type": "text",

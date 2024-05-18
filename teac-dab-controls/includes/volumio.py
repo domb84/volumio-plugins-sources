@@ -72,14 +72,14 @@ class volumio:
                                 self.get_sources(item['button'])
                                 logger.debug(f"{item}")
 
-                            elif re.match('([a-zA-Z0-9_-])', item['button']):
-                                self.get_sources(item['button'])
-                                logger.debug(f"{item}")
-
-
                             # else list the items below it 
                             elif item['button'] == 'stop':
                                 self.stop()
+                                logger.debug(f"{item}")
+
+                            # TODO: this is too broad, fix so only menus are rendered
+                            elif re.match('([a-zA-Z0-9_-])', item['button']):
+                                self.get_sources(item['button'])
                                 logger.debug(f"{item}")
 
                             self.volumioQ.task_done()
@@ -226,28 +226,35 @@ class volumio:
             
 
     def _onPushBrowseLibrary(self, *args):
-        # logger.debug(args)
+        logger.debug(f"Received: {args}")
 
         sources_list = list()
 
-        # Some sources are a mix of list items and sources, so iterate over all of them
-        main_source = args[0].get('navigation', {}).get('lists', [])
+        if args[0] != {}:
+            # Some sources are a mix of list items and sources, so iterate over all of them
+            main_source = args[0].get('navigation', {}).get('lists', [])
 
-        if main_source:
-            for lists in main_source:
+            if main_source:
+                for lists in main_source:
 
-                sources = lists['items']
+                    sources = lists['items']
 
-                for source in sources:
-                    sources_list.append({
-                        'title': source.get('title', None),
-                        'uri': source.get('uri', None),
-                        'service': source.get('service', None),
-                        'type': source.get('type', None),
-                        'position': source.get('position', None)
-                    })
+                    for source in sources:
+                        sources_list.append({
+                            'title': source.get('title', None),
+                            'uri': source.get('uri', None),
+                            'service': source.get('service', None),
+                            'type': source.get('type', None),
+                            'position': source.get('position', None)
+                        })
+        
+        else:
+            logger.warning(f"Received empty data: {args}")
+            return
+ 
         
         result = json.dumps(sources_list)
+        logger.debug(result)
         self.menuManagerQ.put({'menu':result})
 
         
@@ -288,6 +295,7 @@ class volumio:
                 })
 
         result = json.dumps(sources_list)
+        logger.debug(result)
         self.menuManagerQ.put({'menu':result})
 
     def getBrowseSources(self):
@@ -295,7 +303,7 @@ class volumio:
 
     def get_sources(self, link):
         logger.debug("Get sources from %s" % link)
-        self._send('browseLibrary', {'uri':link}, callback=self._onPushBrowseLibrary)
+        self._send('browseLibrary', {'uri':link})
 
     def add_favourite(self, title, link, service):
         logger.debug(f"Add {title} from {link} to {service} favourites")
