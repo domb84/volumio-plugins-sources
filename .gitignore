@@ -5,3 +5,4 @@
 /.idea/*
 teac-dab-controls/*/__pycache__/*
 ir_controller/package-lock.json
+package-lock.json
