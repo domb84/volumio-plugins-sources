@@ -1,8 +1,7 @@
 
 .DS_Store
-*node_modules*
+*/node_modules/
 .gitignore
-/.idea/*
-teac-dab-controls/*/__pycache__/*
-ir_controller/package-lock.json
+*/.idea/
+*/__pycache__/
 package-lock.json

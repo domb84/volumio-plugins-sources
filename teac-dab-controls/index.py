@@ -45,6 +45,8 @@ buttons_mosi = int(config_data['buttons_mosi']['value'])
 buttons_cs = int(config_data['buttons_cs']['value'])
 buttons_channel1 = int(config_data['buttons_channel1']['value'])
 buttons_channel2 = int(config_data['buttons_channel2']['value'])
+button_poll_rate = int(config_data['button_poll_rate']['value'])
+button_debounce_rate = int(config_data['button_debounce_rate']['value'])
 spi_bus = int(config_data['spi_bus']['value'])
 spi = bool(config_data['spi']['value'])
 
@@ -87,7 +89,7 @@ api_wrapper = api.ApiWrapper(controlQ)
 
 
 # start threads
-t1 = threading.Thread(target=controls.controls, args=(controlQ, rot_enc_A, rot_enc_B, buttons_clk, buttons_miso, buttons_mosi, buttons_cs, buttons_channel1, buttons_channel2, spi_bus, spi, btn_config, btn_skip_config))
+t1 = threading.Thread(target=controls.controls, args=(controlQ, rot_enc_A, rot_enc_B, buttons_clk, buttons_miso, buttons_mosi, buttons_cs, buttons_channel1, buttons_channel2, spi_bus, spi, btn_config, btn_skip_config, button_poll_rate, button_debounce_rate))
 t2 = threading.Thread(target=menu_manager.menu_manager, args=(controlQ, volumioQ, menuManagerQ, lcd_rs, lcd_e, lcd_d4, lcd_d5, lcd_d6, lcd_d7))
 t3 = threading.Thread(target=volumio.volumio, args=(volumioQ, menuManagerQ,))
 t4 = threading.Thread(target=api_wrapper.run_app, args=('0.0.0.0', 8889))

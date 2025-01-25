@@ -31,6 +31,14 @@
         "type": "number",
         "value": "7"
     },
+    "button_poll_rate": {
+        "type": "number",
+        "value": "10"
+    },
+    "button_debounce_rate": {
+        "type": "number",
+        "value": "50"
+    },
     "rot_enc_A": {
         "type": "number",
         "value": "17"

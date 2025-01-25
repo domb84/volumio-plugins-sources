@@ -8,7 +8,7 @@ logger.setLevel(logging.DEBUG)
 
 class controls:
 
-    def __init__(self, controlQ=None, encA=17, encB=27, butClk=11, butDOUT=9, butDIN=10, butCS=22, but1=0, but2=7, spi_bus=1, spi=True, btn_config=None, btn_skip_config=None):
+    def __init__(self, controlQ=None, encA=17, encB=27, butClk=11, butDOUT=9, butDIN=10, butCS=22, but1=0, but2=7, spi_bus=1, spi=True, btn_config=None, btn_skip_config=None, button_poll_rate=10, button_debounce_rate=50):
         logger.debug("Loading controls")
         self.controlQ = controlQ
 
@@ -20,7 +20,7 @@ class controls:
 
         else:
             logger.debug('Software mode')
-            self.buttons(butClk,butDOUT,butDIN,butCS,but1,but2,btn_config, btn_skip_config)
+            self.buttons(butClk,butDOUT,butDIN,butCS,but1,but2,btn_config, btn_skip_config, button_poll_rate, button_debounce_rate)
 
 
     def normalize_value(self, value, min_value, max_value, target_range):
@@ -70,16 +70,22 @@ class controls:
 
         logger.info('Rotary thread start successfully, listening for turns')
 
-
-    def buttons(self,butClk,butDOUT,butDIN,butCS,but1,but2,btn_config,btn_skip_config):
+    def buttons(self, butClk, butDOUT, butDIN, butCS, but1, but2, btn_config, btn_skip_config, button_poll_rate, button_debounce_rate):
         # Define MCP3008 pins
-        CLK = butClk # CLK
-        DOUT = butDOUT # MISO
-        DIN = butDIN # MOSI
-        CS = butCS # CS
+        CLK = butClk  # CLK
+        DOUT = butDOUT  # MISO
+        DIN = butDIN  # MOSI
+        CS = butCS  # CS
 
-        # channels to read from MCP 3008
-        channels = [but1,but2]
+        # Channels to read from MCP3008
+        channels = [but1, but2]
+
+        # Poll rate
+        button_poll_rate = button_poll_rate / 1000
+
+        # Debounce settings
+        debounce_duration = button_debounce_rate / 1000  # Convert ms to seconds
+        button_states = {channel: {"last_value": None, "stable_since": None} for channel in channels}
 
         # Set up GPIO pins
         GPIO.setmode(GPIO.BCM)
@@ -96,14 +102,10 @@ class controls:
             # Send start bit (1), single-ended (1), and channel number (3)
             command = channel
             command |= 0x18  # start bit + single-ended
-            command <<= 3    # we only need to send 5 bits
+            command <<= 3  # we only need to send 5 bits
 
-            # use an _ as we do not need to retrieve a value from the loop
             for _ in range(5):
-                if command & 0x80:
-                    GPIO.output(DIN, GPIO.HIGH)
-                else:
-                    GPIO.output(DIN, GPIO.LOW)
+                GPIO.output(DIN, GPIO.HIGH if command & 0x80 else GPIO.LOW)
                 command <<= 1
                 GPIO.output(CLK, GPIO.HIGH)
                 GPIO.output(CLK, GPIO.LOW)
@@ -122,82 +124,66 @@ class controls:
 
             return value
 
-        # Adjust sleep time to reduce loop frequency
         while True:
-            # Read data from channels in the list
+            # Read data from channels
             batch_data = [read_mcp3008(channel) for channel in channels]
 
-            # Process batch data
+            # Process each channel
             for data, channel in zip(batch_data, channels):
                 data = self.normalize_value(data, 0, 1024, 32)
-                logger.debug('Normalized on Channel: {channel}: {data}'.format(channel=channel, data=data))
 
-                # Check btn_skip_config first
-                for btn, (btn_channel, btn_data) in btn_skip_config.items():
-                    btn_data_values = btn_data.split("-")
-                    # Check if there are exactly two parts after splitting
-                    if len(btn_data_values) == 2:
-                        # sort values
-                        btn_data_values.sort()
-                        lower_value = int(btn_data_values[0])
-                        upper_value = int(btn_data_values[1])
-                        btn_channel = int(btn_channel)
+                # Debouncing logic
+                state = button_states[channel]
+                if data != state["last_value"]:
+                    # Reset debounce timer on state change
+                    state["stable_since"] = time.time()
+                    state["last_value"] = data
+                elif time.time() - state["stable_since"] >= debounce_duration:
+                    # If stable for the debounce duration, process the input
+                    logger.debug(f"Channel {channel} stable value: {data}")
 
-                        logger.debug('Checking: {btn_channel}: {lower_value}-{upper_value}'.format(btn_channel=btn_channel,lower_value=lower_value,upper_value=upper_value))
-                        
-                        # check for button values in range
-                        if btn_channel == channel and lower_value <= data <= upper_value:
-                            break
-
-                    # check for single button value
-                    else:
-                        btn_data = int(btn_data_values[0])
-                        btn_channel = int(btn_channel)
-
-                        logger.debug('Checking: {btn_channel}: {btn_data}'.format(btn_channel=btn_channel,btn_data=btn_data))
-
-                        if btn_channel == channel and btn_data == data:
-                            break
-
-                else:
-                    # If not found in btn_skip_config, check btn_config
-                    for btn, (btn_channel, btn_data) in btn_config.items():
+                    # Check btn_skip_config first
+                    for btn, (btn_channel, btn_data) in btn_skip_config.items():
                         btn_data_values = btn_data.split("-")
-                        # Check if there are exactly two parts after splitting
                         if len(btn_data_values) == 2:
-                            # sort values
                             btn_data_values.sort()
                             lower_value = int(btn_data_values[0])
                             upper_value = int(btn_data_values[1])
                             btn_channel = int(btn_channel)
 
-                            logger.debug('Checking: {btn_channel}: {lower_value}-{upper_value}'.format(btn_channel=btn_channel,lower_value=lower_value,upper_value=upper_value))
-
-                            # check for button values in range
                             if btn_channel == channel and lower_value <= data <= upper_value:
-                                logger.debug('Pressed button:{btn} on channel:{channel} with value:{data}'.format(btn=btn, channel=channel, data=data))
-                                self.controlQ.put({'control': btn})
                                 break
-
-                        # check for single button value
                         else:
                             btn_data = int(btn_data_values[0])
                             btn_channel = int(btn_channel)
 
-                            logger.debug('Checking: {btn_channel}: {btn_data}'.format(btn_channel=btn_channel,btn_data=btn_data))
-
                             if btn_channel == channel and btn_data == data:
-                                logger.debug('Pressed button:{btn} on channel:{channel} with value:{data}'.format(btn=btn, channel=channel, data=data))
-                                self.controlQ.put({'control': btn})
                                 break
-
                     else:
-                        logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
+                        for btn, (btn_channel, btn_data) in btn_config.items():
+                            btn_data_values = btn_data.split("-")
+                            if len(btn_data_values) == 2:
+                                btn_data_values.sort()
+                                lower_value = int(btn_data_values[0])
+                                upper_value = int(btn_data_values[1])
+                                btn_channel = int(btn_channel)
 
-            # Adjust sleep time to reduce loop frequency
-            time.sleep(0.25)
+                                if btn_channel == channel and lower_value <= data <= upper_value:
+                                    self.controlQ.put({'control': btn})
+                                    break
+                            else:
+                                btn_data = int(btn_data_values[0])
+                                btn_channel = int(btn_channel)
 
+                                if btn_channel == channel and btn_data == data:
+                                    self.controlQ.put({'control': btn})
+                                    break
+                        else:
+                            logger.warning(f"Uncaught press on Channel {channel}: {data}")
 
+            time.sleep(button_poll_rate)  # Adjust sleep time as needed
+
+    ## TODO: Add debounce and poll rate support
     def buttons_spi(self,spi_bus,butCS,but1,but2,btn_config,btn_skip_config):
         # Define MCP3008 pins
         spi = spidev.SpiDev()
