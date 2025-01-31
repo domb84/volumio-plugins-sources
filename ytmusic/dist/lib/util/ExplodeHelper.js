@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const YTMusicContext_1 = __importDefault(require("../YTMusicContext"));
 const ViewHelper_1 = __importDefault(require("../controller/browse/view-handlers/ViewHelper"));
 const Endpoint_1 = require("../types/Endpoint");
+const EndpointHelper_1 = __importDefault(require("./EndpointHelper"));
 class ExplodeHelper {
     // Creates a bundle that contains the data needed by explode() to
     // Generate the final exploded item.
@@ -28,6 +29,17 @@ class ExplodeHelper {
             result.autoplayContext = data.autoplayContext;
         }
         return result;
+    }
+    static getExplodedTrackInfoFromUri(uri) {
+        if (!uri) {
+            return null;
+        }
+        const trackView = ViewHelper_1.default.getViewsFromUri(uri)[1];
+        if (!trackView || (trackView.name !== 'video' && trackView.name !== 'song') ||
+            !EndpointHelper_1.default.isType(trackView.explodeTrackData?.endpoint, Endpoint_1.EndpointType.Watch)) {
+            return null;
+        }
+        return trackView.explodeTrackData;
     }
     static validateExplodeUri(uri) {
         // Current view
@@ -50,6 +62,8 @@ class ExplodeHelper {
             case 'album':
                 // Endpoints object must exist (pre-v1.0 is just albumId / playlistId)
                 return view.endpoints && typeof view.endpoints === 'object';
+            case 'podcast':
+                return true;
             case 'generic':
                 // Endpoint must be an object (pre-v1.0 is stringified)
                 return view.endpoint && typeof view.endpoint === 'object';
@@ -69,7 +83,7 @@ class ExplodeHelper {
      * @param {*} uri
      * @returns Converted URI or `null` on failure
      */
-    static async convertLegacyExplodeUri(uri) {
+    static convertLegacyExplodeUri(uri) {
         // Current view
         const view = ViewHelper_1.default.getViewsFromUri(uri).pop();
         if (!view) {
@@ -83,7 +97,7 @@ class ExplodeHelper {
             try {
                 explodeTrackData = JSON.parse(decodeURIComponent(view.explodeTrackData));
             }
-            catch (error) {
+            catch (_error) {
                 explodeTrackData = view.explodeTrackData;
             }
             if (typeof explodeTrackData !== 'object') {
@@ -225,7 +239,6 @@ class ExplodeHelper {
         };
     }
 }
-exports.default = ExplodeHelper;
 _a = ExplodeHelper, _ExplodeHelper_getUriFromExplodedTrackInfo = function _ExplodeHelper_getUriFromExplodedTrackInfo(info) {
     /**
      * `explodeTrackData` - necessary because Volumio adds track uri in
@@ -238,4 +251,5 @@ _a = ExplodeHelper, _ExplodeHelper_getUriFromExplodedTrackInfo = function _Explo
     };
     return `ytmusic/${ViewHelper_1.default.constructUriSegmentFromView(targetView)}`;
 };
+exports.default = ExplodeHelper;
 //# sourceMappingURL=ExplodeHelper.js.map

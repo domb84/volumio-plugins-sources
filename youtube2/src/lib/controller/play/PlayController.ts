@@ -4,16 +4,15 @@ import libQ from 'kew';
 
 import yt2 from '../../YouTube2Context';
 import Model, { ModelType } from '../../model';
-import { EndpointType, WatchEndpoint } from '../../types/Endpoint';
+import { EndpointType, type WatchEndpoint } from '../../types/Endpoint';
 import { kewToJSPromise } from '../../util';
-import { ExplodedTrackInfo } from '../browse/view-handlers/ExplodableViewHandler';
-import { QueueItem } from '../browse/view-handlers/ExplodableViewHandler';
-import { VideoView } from '../browse/view-handlers/VideoViewHandler';
+import { type ExplodedTrackInfo } from '../browse/view-handlers/ExplodableViewHandler';
+import { type QueueItem } from '../browse/view-handlers/ExplodableViewHandler';
 import ViewHelper from '../browse/view-handlers/ViewHelper';
 import ExplodeHelper from '../../util/ExplodeHelper';
-import { GenericView } from '../browse/view-handlers/GenericViewHandler';
-import VideoPlaybackInfo from '../../types/VideoPlaybackInfo';
-import { ContentItem } from '../../types';
+import { type GenericView } from '../browse/view-handlers/GenericViewHandler';
+import type VideoPlaybackInfo from '../../types/VideoPlaybackInfo';
+import { type ContentItem } from '../../types';
 import EndpointHelper from '../../util/EndpointHelper';
 import EventEmitter from 'events';
 
@@ -53,7 +52,7 @@ export default class PlayController {
       this.#autoplayListener = () => {
         this.#mpdPlugin.getState().then((state: MpdState) => {
           if (state.status === 'stop') {
-            this.#handleAutoplay();
+            void this.#handleAutoplay();
             this.#removeAutoplayListener();
           }
         });
@@ -79,7 +78,7 @@ export default class PlayController {
 
     this.#prefetchPlaybackStateFixer?.notifyPrefetchCleared();
 
-    const {videoId, info: playbackInfo} = await this.#getPlaybackInfoFromUri(track.uri);
+    const {videoId, info: playbackInfo} = await PlayController.getPlaybackInfoFromUri(track.uri);
     if (!playbackInfo) {
       throw Error(`Could not obtain playback info for videoId: ${videoId})`);
     }
@@ -117,7 +116,7 @@ export default class PlayController {
 
     if (yt2.getConfigValue('addToHistory')) {
       try {
-        playbackInfo.addToHistory();
+        void playbackInfo.addToHistory();
       }
       catch (error) {
         yt2.getLogger().error(yt2.getErrorMessage(`[youtube2-play] Error: could not add to history (videoId: ${videoId}): `, error));
@@ -174,23 +173,8 @@ export default class PlayController {
     return yt2.getStateMachine().previous();
   }
 
-  #getExplodedTrackInfoFromUri(uri: string): ExplodedTrackInfo | null {
-    if (!uri) {
-      return null;
-    }
-
-    const trackView = ViewHelper.getViewsFromUri(uri)[1] as VideoView;
-
-    if (!trackView || trackView.name !== 'video' ||
-      !EndpointHelper.isType(trackView.explodeTrackData?.endpoint, EndpointType.Watch)) {
-      return null;
-    }
-
-    return trackView.explodeTrackData;
-  }
-
-  async #getPlaybackInfoFromUri(uri: string): Promise<{videoId: string; info: VideoPlaybackInfo | null}> {
-    const watchEndpoint = this.#getExplodedTrackInfoFromUri(uri)?.endpoint;
+  static async getPlaybackInfoFromUri(uri: string): Promise<{videoId: string; info: VideoPlaybackInfo | null}> {
+    const watchEndpoint = ExplodeHelper.getExplodedTrackInfoFromUri(uri)?.endpoint;
     const videoId = watchEndpoint?.payload?.videoId;
     if (!videoId) {
       throw Error(`Invalid track uri: ${uri}`);
@@ -312,7 +296,7 @@ export default class PlayController {
   }
 
   async #getAutoplayItems() {
-    const lastPlayedEndpoint = this.#getExplodedTrackInfoFromUri(this.#lastPlaybackInfo?.track?.uri)?.endpoint;
+    const lastPlayedEndpoint = ExplodeHelper.getExplodedTrackInfoFromUri(this.#lastPlaybackInfo?.track?.uri)?.endpoint;
     const videoId = lastPlayedEndpoint?.payload?.videoId;
 
     if (!videoId) {
@@ -384,7 +368,7 @@ export default class PlayController {
 
     // 2. Related
     if (autoplayItems.length === 0 && relatedItems && autoplayPrefMixRelated) {
-      const relatedVideos = relatedItems.filter((item) => item.type === 'video') as ContentItem.Video[];
+      const relatedVideos = relatedItems.filter((item) => item.type === 'video');
       if (relatedVideos) {
         autoplayItems.push(...relatedVideos.map((item) => ExplodeHelper.getExplodedTrackInfoFromVideo(item)));
         yt2.getLogger().info(`[youtube2-play] Obtained ${autoplayItems.length} related videos for autoplay`);
@@ -416,14 +400,14 @@ export default class PlayController {
 
   async getGotoUri(type: 'album' | 'artist', uri: QueueItem['uri']): Promise<string | null> {
     if (type === 'album') {
-      const playlistId = this.#getExplodedTrackInfoFromUri(uri)?.endpoint?.payload?.playlistId;
+      const playlistId = ExplodeHelper.getExplodedTrackInfoFromUri(uri)?.endpoint?.payload?.playlistId;
       if (playlistId) {
         const targetView: GenericView = {
           name: 'generic',
           endpoint: {
             type: EndpointType.Browse,
             payload: {
-              browseId: (!playlistId.startsWith('VL') ? 'VL' : '') + playlistId
+              browseId: `${(!playlistId.startsWith('VL') ? 'VL' : '')}${playlistId}`
             }
           }
         };
@@ -431,7 +415,7 @@ export default class PlayController {
       }
     }
     else if (type === 'artist') {
-      const videoId = this.#getExplodedTrackInfoFromUri(uri)?.endpoint?.payload?.videoId;
+      const videoId = ExplodeHelper.getExplodedTrackInfoFromUri(uri)?.endpoint?.payload?.videoId;
       if (videoId) {
         const model = Model.getInstance(ModelType.Video);
         const playbackInfo = await model.getPlaybackInfo(videoId);
@@ -472,7 +456,7 @@ export default class PlayController {
     }
     let streamUrl;
     try {
-      const { videoId, info: playbackInfo } = await this.#getPlaybackInfoFromUri(track.uri);
+      const { videoId, info: playbackInfo } = await PlayController.getPlaybackInfoFromUri(track.uri);
       streamUrl = playbackInfo?.stream?.url;
       if (!streamUrl || !playbackInfo) {
         throw Error(`Stream not found for videoId '${videoId}'`);

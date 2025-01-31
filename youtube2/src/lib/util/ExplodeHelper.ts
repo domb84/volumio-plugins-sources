@@ -1,11 +1,12 @@
 import yt2 from '../YouTube2Context';
-import { ExplodedTrackInfo, QueueItem } from '../controller/browse/view-handlers/ExplodableViewHandler';
-import { GenericView } from '../controller/browse/view-handlers/GenericViewHandler';
-import { VideoView } from '../controller/browse/view-handlers/VideoViewHandler';
+import { type ExplodedTrackInfo, type QueueItem } from '../controller/browse/view-handlers/ExplodableViewHandler';
+import { type GenericView } from '../controller/browse/view-handlers/GenericViewHandler';
+import { type VideoView } from '../controller/browse/view-handlers/VideoViewHandler';
 import ViewHelper from '../controller/browse/view-handlers/ViewHelper';
 import Model, { ModelType } from '../model';
-import { ContentItem } from '../types';
+import { type ContentItem } from '../types';
 import { EndpointType } from '../types/Endpoint';
+import EndpointHelper from './EndpointHelper';
 
 export default class ExplodeHelper {
 
@@ -18,6 +19,21 @@ export default class ExplodeHelper {
       albumart: data.thumbnail || '',
       endpoint: data.endpoint
     };
+  }
+
+  static getExplodedTrackInfoFromUri(uri: string): ExplodedTrackInfo | null {
+    if (!uri) {
+      return null;
+    }
+
+    const trackView = ViewHelper.getViewsFromUri(uri)[1] as VideoView;
+
+    if (!trackView || trackView.name !== 'video' ||
+      !EndpointHelper.isType(trackView.explodeTrackData?.endpoint, EndpointType.Watch)) {
+      return null;
+    }
+
+    return trackView.explodeTrackData;
   }
 
   static validateExplodeUri(uri: string) {

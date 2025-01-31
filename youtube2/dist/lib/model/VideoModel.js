@@ -45,6 +45,7 @@ class VideoModel extends BaseModel_1.BaseModel {
                     channelId: basicInfo.channel_id,
                     name: basicInfo.author
                 },
+                description: basicInfo.short_description,
                 thumbnail: InnertubeResultParser_1.default.parseThumbnail(basicInfo.thumbnail) || '',
                 isLive: !!basicInfo.is_live,
                 duration: basicInfo.duration,
@@ -52,7 +53,7 @@ class VideoModel extends BaseModel_1.BaseModel {
                     return info?.addToWatchHistory();
                 }
             };
-            if (info.playability_status.status === 'UNPLAYABLE') {
+            if (info.playability_status?.status === 'UNPLAYABLE') {
                 // Check if this video has a trailer (non-purchased movies / films)
                 if (info.has_trailer) {
                     const trailerInfo = info.getTrailerInfo();
@@ -80,7 +81,6 @@ class VideoModel extends BaseModel_1.BaseModel {
         }
     }
 }
-exports.default = VideoModel;
 _VideoModel_instances = new WeakSet(), _VideoModel_chooseFormat = function _VideoModel_chooseFormat(innertube, videoInfo) {
     const format = videoInfo?.chooseFormat(BEST_AUDIO_FORMAT);
     const streamUrl = format ? format.decipher(innertube.session.player) : null;
@@ -136,4 +136,5 @@ _VideoModel_instances = new WeakSet(), _VideoModel_chooseFormat = function _Vide
     const closest = diffs.filter((v) => v.qualityDelta >= 0).sort((v1, v2) => v1.qualityDelta - v2.qualityDelta)[0];
     return closest?.variant.url || playlistVariants[0]?.url || null;
 };
+exports.default = VideoModel;
 //# sourceMappingURL=VideoModel.js.map
