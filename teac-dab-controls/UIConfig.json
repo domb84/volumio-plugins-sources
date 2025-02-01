@@ -24,7 +24,10 @@
           "buttons_mosi",
           "buttons_cs",
           "buttons_channel1",
-          "buttons_channel2"
+          "buttons_channel2",
+          "button_poll_rate",
+          "button_debounce_rate",
+          "button_cooldown_rate"
         ]
       },
       "content": [
@@ -81,6 +84,27 @@
           "type":"number",
           "element": "input",
           "label": "Buttons Channel 2 (MCP3008) pin",
+          "value": ""
+        },
+        {
+          "id": "button_poll_rate",
+          "type":"number",
+          "element": "input",
+          "label": "Polling rate in ms for reading button presses",
+          "value": ""
+        },
+        {
+          "id": "button_debounce_rate",
+          "type":"number",
+          "element": "input",
+          "label": "Debounce duration in ms for button presses",
+          "value": ""
+        },
+        {
+          "id": "button_cooldown_rate",
+          "type":"number",
+          "element": "input",
+          "label": "Cooldown duration in ms for button presses",
           "value": ""
         }
       ]

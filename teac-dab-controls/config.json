@@ -31,6 +31,18 @@
         "type": "number",
         "value": "7"
     },
+    "button_poll_rate": {
+        "type": "number",
+        "value": "10"
+    },
+    "button_debounce_rate": {
+        "type": "number",
+        "value": "50"
+    },
+    "button_cooldown_rate": {
+        "type": "number",
+        "value": "500"
+    },
     "rot_enc_A": {
         "type": "number",
         "value": "17"
@@ -69,7 +81,7 @@
     },
     "btn_radio": {
         "type": "text",
-        "value": "0, 30"
+        "value": "0, 29-30"
     },
     "btn_spotify": {
         "type": "text",
