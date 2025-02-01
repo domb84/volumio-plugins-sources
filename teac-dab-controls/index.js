@@ -108,6 +108,7 @@ teacdabcontrols.prototype.getUIConfig = function() {
             uiconf.sections[0].content[7].value = self.config.get('buttons_channel2');
             uiconf.sections[0].content[8].value = self.config.get('button_poll_rate');
             uiconf.sections[0].content[9].value = self.config.get('button_debounce_rate');
+            uiconf.sections[0].content[10].value = self.config.get('button_cooldown_rate');
             uiconf.sections[1].content[0].value = self.config.get('btn_enter');
             uiconf.sections[1].content[1].value = self.config.get('btn_radio');
             uiconf.sections[1].content[2].value = self.config.get('btn_spotify');

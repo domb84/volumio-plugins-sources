@@ -4,6 +4,10 @@ from time import sleep
 import logging
 logger = logging.getLogger("Volumio Functions")
 logger.setLevel(logging.WARNING)
+# Create a handler that prints to console
+ch = logging.StreamHandler()
+ch.setLevel(logging.WARNING)
+logger.addHandler(ch)
 
 # set socketio logging
 logging.getLogger('socketio').setLevel(logging.WARNING)

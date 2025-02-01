@@ -1,6 +1,10 @@
 import logging
 logger = logging.getLogger("Menu Manager")
 logger.setLevel(logging.WARNING)
+# Create a handler that prints to console
+ch = logging.StreamHandler()
+ch.setLevel(logging.WARNING)
+logger.addHandler(ch)
 
 from collections import deque
 import json

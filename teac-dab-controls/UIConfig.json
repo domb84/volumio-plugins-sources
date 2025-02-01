@@ -26,7 +26,8 @@
           "buttons_channel1",
           "buttons_channel2",
           "button_poll_rate",
-          "button_debounce_rate"
+          "button_debounce_rate",
+          "button_cooldown_rate"
         ]
       },
       "content": [
@@ -96,7 +97,14 @@
           "id": "button_debounce_rate",
           "type":"number",
           "element": "input",
-          "label": "Debonce duration in ms for button presses",
+          "label": "Debounce duration in ms for button presses",
+          "value": ""
+        },
+        {
+          "id": "button_cooldown_rate",
+          "type":"number",
+          "element": "input",
+          "label": "Cooldown duration in ms for button presses",
           "value": ""
         }
       ]

@@ -39,6 +39,10 @@
         "type": "number",
         "value": "50"
     },
+    "button_cooldown_rate": {
+        "type": "number",
+        "value": "500"
+    },
     "rot_enc_A": {
         "type": "number",
         "value": "17"
