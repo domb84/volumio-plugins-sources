@@ -19,9 +19,10 @@ from retrying import retry
 
 class volumio:
 
-    def __init__(self, volumioQ, menuManagerQ):
+    def __init__(self, volumioQ, menuManagerQ, stop_event=None):
         self.volumioQ = volumioQ
         self.menuManagerQ = menuManagerQ
+        self.stop_event = stop_event
         self._waiting = .1
 
 
@@ -49,7 +50,7 @@ class volumio:
 
         queues = [self.volumioQ]
 
-        while True:
+        while not (self.stop_event and self.stop_event.is_set()):
             for queue in queues:
                 while not queue.empty():
                     item = queue.get()
@@ -106,6 +107,11 @@ class volumio:
                     except Exception as e:
                         logger.debug("Failed to process queue item: " + str(e))
             sleep(0.2)
+
+        try:
+            self.sio.disconnect()
+        except Exception:
+            logger.debug("SocketIO disconnect failed during shutdown")
 
 
     def _send(self, command, args=None, callback=None, namespace=None):

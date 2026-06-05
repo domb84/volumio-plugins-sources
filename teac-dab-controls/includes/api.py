@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+import threading
 import uvicorn
 
 class ApiWrapper:
@@ -12,6 +13,14 @@ class ApiWrapper:
             self.shared_queue.put(data)
             return {'message': 'Data received successfully!'}
 
-    def run_app(self, host='0.0.0.0', port=8889):
-        # Start FastAPI
-        uvicorn.run(self.app, host=host, port=port)
+    def _wait_for_stop(self, stop_event):
+        stop_event.wait()
+        if hasattr(self, '_server'):
+            self._server.should_exit = True
+
+    def run_app(self, host='0.0.0.0', port=8889, stop_event=None):
+        config = uvicorn.Config(self.app, host=host, port=port, log_level='warning')
+        self._server = uvicorn.Server(config)
+        if stop_event is not None:
+            threading.Thread(target=self._wait_for_stop, args=(stop_event,), daemon=True).start()
+        self._server.run()

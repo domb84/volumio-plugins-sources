@@ -12,19 +12,52 @@ logger.addHandler(ch)
 
 class controls:
 
-    def __init__(self, controlQ=None, encA=17, encB=27, butClk=11, butDOUT=9, butDIN=10, butCS=22, but1=0, but2=7, spi_bus=1, spi=True, btn_config=None, btn_skip_config=None, button_poll_rate=10, button_debounce_rate=50, button_cooldown_rate=500):
+    def __init__(
+        self,
+        controlQ=None,
+        encA=17,
+        encB=27,
+        butClk=11,
+        butDOUT=9,
+        butDIN=10,
+        butCS=22,
+        but1=0,
+        but2=7,
+        spi_bus=1,
+        spi=True,
+        btn_config=None,
+        btn_skip_config=None,
+        button_poll_rate=10,
+        button_debounce_rate=50,
+        button_cooldown_rate=500,
+        stop_event=None,
+    ):
         logger.debug("Loading controls")
         self.controlQ = controlQ
+        self.stop_event = stop_event
 
-        self.rotary_encoder(encA,encB)
+        self.rotary_encoder(encA, encB)
 
         if spi:
             logger.debug('SPI mode')
-            self.buttons_spi(spi_bus,butCS,but1,but2,btn_config, btn_skip_config)
+            self.buttons_spi(spi_bus, butCS, but1, but2, btn_config, btn_skip_config, stop_event)
 
         else:
             logger.debug('Software mode')
-            self.buttons(butClk,butDOUT,butDIN,butCS,but1,but2,btn_config, btn_skip_config, button_poll_rate, button_debounce_rate, button_cooldown_rate)
+            self.buttons(
+                butClk,
+                butDOUT,
+                butDIN,
+                butCS,
+                but1,
+                but2,
+                btn_config,
+                btn_skip_config,
+                button_poll_rate,
+                button_debounce_rate,
+                button_cooldown_rate,
+                stop_event,
+            )
 
 
     def normalize_value(self, value, min_value, max_value, target_range):
@@ -74,7 +107,21 @@ class controls:
 
         logger.info('Rotary thread start successfully, listening for turns')
 
-    def buttons(self, butClk, butDOUT, butDIN, butCS, but1, but2, btn_config, btn_skip_config, button_poll_rate, button_debounce_rate, button_cooldown_rate):
+    def buttons(
+        self,
+        butClk,
+        butDOUT,
+        butDIN,
+        butCS,
+        but1,
+        but2,
+        btn_config,
+        btn_skip_config,
+        button_poll_rate,
+        button_debounce_rate,
+        button_cooldown_rate,
+        stop_event=None,
+    ):
         CLK = butClk
         DOUT = butDOUT
         DIN = butDIN
@@ -123,7 +170,7 @@ class controls:
             GPIO.output(CS, GPIO.HIGH)
             return value
 
-        while True:
+        while not (stop_event and stop_event.is_set()):
             batch_data = [read_mcp3008(channel) for channel in channels]
 
             for data, channel in zip(batch_data, channels):
@@ -175,7 +222,7 @@ class controls:
             time.sleep(button_poll_rate)
 
     ## TODO: Add debounce and poll rate support
-    def buttons_spi(self,spi_bus,butCS,but1,but2,btn_config,btn_skip_config):
+    def buttons_spi(self, spi_bus, butCS, but1, but2, btn_config, btn_skip_config, stop_event=None):
         # Define MCP3008 pins
         spi = spidev.SpiDev()
         spi.open(0, spi_bus)  # Open SPI bus X, device 0
@@ -206,7 +253,7 @@ class controls:
             return adc_value
 
         # Adjust sleep time to reduce loop frequency
-        while True:
+        while not (stop_event and stop_event.is_set()):
             # Read data from channels in the list
             batch_data = [read_mcp3008(channel) for channel in channels]
 

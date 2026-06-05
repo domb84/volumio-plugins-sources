@@ -19,10 +19,23 @@ from rpilcdmenu.items import *
 
 class menu_manager:
 
-    def __init__(self ,controlQ, volumioQ, menuManagerQ, lcdRS=7, lcdE=8, lcdD4=25, lcdD5=24, lcdD6=23, lcdD7=15):
+    def __init__(
+        self,
+        controlQ,
+        volumioQ,
+        menuManagerQ,
+        lcdRS=7,
+        lcdE=8,
+        lcdD4=25,
+        lcdD5=24,
+        lcdD6=23,
+        lcdD7=15,
+        stop_event=None,
+    ):
         self.controlQ = controlQ
         self.volumioQ = volumioQ
         self.menuManagerQ = menuManagerQ
+        self.stop_event = stop_event
 
         # put the queues in a list
         queues = [self.controlQ, self.menuManagerQ]
@@ -58,7 +71,7 @@ class menu_manager:
         }
 
 
-        while True:
+        while not (self.stop_event and self.stop_event.is_set()):
             for queue in queues:
                 while not queue.empty():
                     queueItem = queue.get()
