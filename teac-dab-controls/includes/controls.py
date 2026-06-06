@@ -126,6 +126,13 @@ class Controls:
         button_debounce_rate /= 1000  
         button_cooldown_rate /= 1000
 
+        # Ensure a sensible minimum poll rate to avoid tight busy-loops
+        # (a value of 0 can happen if the config is set to 0)
+        if button_poll_rate <= 0:
+            button_poll_rate = 0.01
+        else:
+            button_poll_rate = max(button_poll_rate, 0.01)
+
         # Use monotonic time for debounce/cooldown
         button_states = {
             channel: {
