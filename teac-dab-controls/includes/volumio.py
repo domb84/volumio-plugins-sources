@@ -64,14 +64,16 @@ class Volumio:
                     if item['button'] == 'menu':
                         self.get_browse_sources()
                         logger.debug("%s", item)
+                        self.volumioQ.task_done()
+                        continue
 
                     # if it's a stream, play it
-                    if re.match(r'(https|http|spotify:track):(\/\/)? .+ (\/)?', item['button']):
+                    if re.match(r'^(https?|spotify:track):(\/\/)?.+', item['button']):
                         self.play(item['button'])
                         logger.debug("%s", item)
 
                     # else list the items below it 
-                    elif re.match(r'(radio|spotify)(\/.*)?', item['button']):
+                    elif re.match(r'^(radio|spotify)(\/.*)?$', item['button']):
                         self.get_sources(item['button'])
                         logger.debug("%s", item)
 
@@ -81,7 +83,7 @@ class Volumio:
                         logger.debug("%s", item)
 
                     # TODO: this is too broad, fix so only menus are rendered
-                    elif re.match(r'([a-zA-Z0-9_-])', item['button']):
+                    elif re.match(r'^[A-Za-z0-9_-]+$', item['button']):
                         self.get_sources(item['button'])
                         logger.debug("%s", item)
 
