@@ -198,14 +198,13 @@ def main() -> None:
     for thread in threads:
         thread.start()
         native_id = getattr(thread, 'native_id', None)
-        if native_id is None:
-            native_id = get_native_thread_id()
         logger.info("Started thread %s native_id=%s ident=%s", thread.name, native_id, thread.ident)
 
     thread_enumeration = []
     for t in threading.enumerate():
+        native_id = getattr(t, 'native_id', None)
         thread_enumeration.append(
-            f"{t.name} ident={t.ident} native_id={getattr(t, 'native_id', None)} alive={t.is_alive()}"
+            f"{t.name} ident={t.ident} native_id={native_id} alive={t.is_alive()}"
         )
     logger.info("All active Python threads: %s", " | ".join(thread_enumeration))
 
