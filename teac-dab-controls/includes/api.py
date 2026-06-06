@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+import ctypes
 import logging
 import threading
 from queue import Queue
@@ -6,6 +7,15 @@ from typing import Any, Dict, Optional
 from uvicorn import Config, Server
 
 logger = logging.getLogger("ApiWrapper")
+
+def get_native_thread_id() -> Optional[int]:
+    if hasattr(threading, 'get_native_id'):
+        return threading.get_native_id()
+    try:
+        libc = ctypes.CDLL('libc.so.6')
+        return libc.syscall(186)
+    except Exception:
+        return None
 
 class ApiWrapper:
     """Run a FastAPI instance in a background thread and push POSTed JSON to a shared queue."""

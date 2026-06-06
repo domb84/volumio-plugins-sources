@@ -1,3 +1,4 @@
+import ctypes
 import logging
 import queue
 import threading
@@ -10,6 +11,15 @@ import json
 import re
 
 logger = logging.getLogger("Menu Manager")
+
+def get_native_thread_id() -> Optional[int]:
+    if hasattr(threading, 'get_native_id'):
+        return threading.get_native_id()
+    try:
+        libc = ctypes.CDLL('libc.so.6')
+        return libc.syscall(186)
+    except Exception:
+        return None
 
 from rpilcdmenu import RpiLCDMenu
 from rpilcdmenu.items import FunctionItem

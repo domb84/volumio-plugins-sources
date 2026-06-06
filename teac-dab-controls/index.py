@@ -1,3 +1,4 @@
+import ctypes
 import json
 import logging
 import queue
@@ -5,9 +6,18 @@ import signal
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from includes import api, controls, menu_manager, volumio
+
+def get_native_thread_id() -> Optional[int]:
+    if hasattr(threading, 'get_native_id'):
+        return threading.get_native_id()
+    try:
+        libc = ctypes.CDLL('libc.so.6')
+        return libc.syscall(186)
+    except Exception:
+        return None
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 CONFIG_PATH = Path("/data/configuration/user_interface/teac-dab-controls/config.json")
@@ -168,6 +178,8 @@ def main() -> None:
     for thread in threads:
         thread.start()
         native_id = getattr(thread, 'native_id', None)
+        if native_id is None:
+            native_id = get_native_thread_id()
         logger.info("Started thread %s native_id=%s ident=%s", thread.name, native_id, thread.ident)
 
     try:

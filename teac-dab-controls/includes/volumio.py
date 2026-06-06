@@ -1,11 +1,21 @@
 # https://volumio.github.io/docs/API/API_Overview.html
 from time import sleep
 
+import ctypes
 import logging
 import queue
 import threading
 from typing import Optional
 logger = logging.getLogger("Volumio Functions")
+
+def get_native_thread_id() -> Optional[int]:
+    if hasattr(threading, 'get_native_id'):
+        return threading.get_native_id()
+    try:
+        libc = ctypes.CDLL('libc.so.6')
+        return libc.syscall(186)
+    except Exception:
+        return None
 
 # set socketio logging
 logging.getLogger('socketio').setLevel(logging.WARNING)

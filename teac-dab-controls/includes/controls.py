@@ -1,3 +1,4 @@
+import ctypes
 import RPi.GPIO as GPIO
 import pigpio
 import spidev
@@ -10,6 +11,15 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("Controls")
 from .utils import parse_button_config
+
+def get_native_thread_id() -> Optional[int]:
+    if hasattr(threading, 'get_native_id'):
+        return threading.get_native_id()
+    try:
+        libc = ctypes.CDLL('libc.so.6')
+        return libc.syscall(186)
+    except Exception:
+        return None
 
 @dataclass
 class ControlsConfig:
