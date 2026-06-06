@@ -96,6 +96,9 @@ class MenuManager:
                     logger.error("processEnter needs to be resolved in the upstream module")
                 except Exception:
                     logger.exception(e)
+            finally:
+                # Prevent tight-looping in case of repeated errors; yield CPU briefly
+                sleep(0.01)
 
         # cleanup on exit
         logger.info('Menu manager stopping')
