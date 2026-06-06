@@ -3,6 +3,7 @@ from time import sleep
 
 import ctypes
 import logging
+import platform
 import queue
 import threading
 from typing import Optional
@@ -78,6 +79,13 @@ class Volumio:
         # setup globals
         self.last_state_list = list()
 
+        thread_enumeration = []
+        for t in threading.enumerate():
+            thread_enumeration.append(
+                f"{t.name} ident={t.ident} native_id={getattr(t, 'native_id', None)} alive={t.is_alive()}"
+            )
+        logger.info("Volumio active Python threads after connect: %s", " | ".join(thread_enumeration))
+
         # Process incoming requests from the volumioQ using blocking get
         while not (self.stop_event and self.stop_event.is_set()):
             try:
@@ -132,12 +140,18 @@ class Volumio:
                     # self.search(title,uri,service)
                     # self.remove_favourite(title,uri,service)
                     self.add_favourite(title,uri,service)
+                    self.volumioQ.task_done()
 
                 else:
                     logger.warning("Queue item did not match filter: %s", item)
+                    self.volumioQ.task_done()
 
             except Exception as e:
                 logger.error("Failed to process queue item: %s", e)
+                try:
+                    self.volumioQ.task_done()
+                except Exception:
+                    pass
 
         logger.info('Volumio worker stopping')
 

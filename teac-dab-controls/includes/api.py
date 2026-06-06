@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 import ctypes
 import logging
+import platform
 import threading
 from queue import Queue
 from typing import Any, Dict, Optional
