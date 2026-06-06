@@ -1,28 +1,26 @@
 import logging
-logger = logging.getLogger("Menu Manager")
-logger.setLevel(logging.WARNING)
-# Create a handler that prints to console
-ch = logging.StreamHandler()
-ch.setLevel(logging.WARNING)
-logger.addHandler(ch)
-
+import queue
 from collections import deque
+from datetime import datetime
+from time import sleep
+from typing import Optional
+
 import json
 import re
 
-from subprocess import call
-from time import sleep
-from datetime import datetime
+logger = logging.getLogger("Menu Manager")
 
-from rpilcdmenu import *
-from rpilcdmenu.items import *
+from rpilcdmenu import RpiLCDMenu
+from rpilcdmenu.items import FunctionItem
 
-class menu_manager:
+class MenuManager:
+    """LCD menu manager: consumes control/menu queues and updates the LCD."""
 
-    def __init__(self ,controlQ, volumioQ, menuManagerQ, lcdRS=7, lcdE=8, lcdD4=25, lcdD5=24, lcdD6=23, lcdD7=15):
+    def __init__(self, controlQ: 'queue.Queue', volumioQ: 'queue.Queue', menuManagerQ: 'queue.Queue', lcdRS: int = 7, lcdE: int = 8, lcdD4: int = 25, lcdD5: int = 24, lcdD6: int = 23, lcdD7: int = 15, stop_event=None):
         self.controlQ = controlQ
         self.volumioQ = volumioQ
         self.menuManagerQ = menuManagerQ
+        self.stop_event = stop_event
 
         # put the queues in a list
         queues = [self.controlQ, self.menuManagerQ]
@@ -58,45 +56,52 @@ class menu_manager:
         }
 
 
-        while True:
-            for queue in queues:
-                while not queue.empty():
-                    queueItem = queue.get()
-                    logger.debug(f"Processing item {queueItem} from queue {queue}")
+        # Use blocking gets with timeout to reduce CPU usage
+        while not (self.stop_event and self.stop_event.is_set()):
+            queueItem = None
+            try:
+                queueItem = self.controlQ.get(timeout=0.5)
+                source = 'control'
+            except queue.Empty:
+                try:
+                    queueItem = self.menuManagerQ.get(timeout=0.5)
+                    source = 'menuManager'
+                except queue.Empty:
+                    continue
 
-                    try:
-                        if 'control' in queueItem:
-                            action = queueItem['control']
-                            if action in self.control_actions:
-                                self.menuAccessTime = datetime.now()
-                                self.control_actions[action]()
-                            else:
-                                logging.warning("Unknown control action: " + action)
-                        elif 'menu' in queueItem:
-                            if queueItem['menu']:
-                                self.build_menu(queueItem['menu'],queueItem.get('remember', True))
-                        elif 'info' in queueItem:
-                            self.show_track_info(queueItem['info'])
-                        elif 'message' in queueItem:
-                            self.show_message(queueItem['message'])
-                        elif 'clear' in queueItem:
-                            self.display_message("", clear=True)
-                        else:
-                            logging.warning("Queue item did not match any filters: " + str(queueItem))
+            logger.debug(f"Processing item {queueItem} from {source}")
+            try:
+                if 'control' in queueItem:
+                    action = queueItem['control']
+                    if action in self.control_actions:
+                        self.menuAccessTime = datetime.now()
+                        self.control_actions[action]()
+                    else:
+                        logger.warning(f"Unknown control action: {action}")
+                elif 'menu' in queueItem:
+                    if queueItem['menu']:
+                        self.build_menu(queueItem['menu'],queueItem.get('remember', True))
+                elif 'info' in queueItem:
+                    self.show_track_info(queueItem['info'])
+                elif 'message' in queueItem:
+                    self.show_message(queueItem['message'])
+                elif 'clear' in queueItem:
+                    self.display_message("", clear=True)
+                else:
+                    logger.warning("Queue item did not match any filters: %s", queueItem)
+            except Exception as e:
+                logger.error("Failed to process queue item: %s", e)
+                try:
+                    logger.error("Failed item %s from %s", queueItem, source)
+                    logger.error("processEnter needs to be resolved in the upstream module")
+                except Exception:
+                    logger.exception(e)
+
+        # cleanup on exit
+        logger.info('Menu manager stopping')
 
 
-                    except Exception as e:
-                        logger.error("Failed to process queue item: " + str(e))
-                        try:
-                            logger.error(f"Failed item {queueItem} from queue {queue}")
-                            logger.error("processEnter needs to be resolved in the upstream module")
-                        except:
-                            logger.error(e)
-
-            sleep(0.2)
-
-
-    def remember(self):
+    def remember(self) -> None:
         # save the last menu for history
         menu = []
         index = self.menu.current_option
@@ -118,13 +123,12 @@ class menu_manager:
         
         self.last_10_items.appendleft(json.dumps(menu))
 
-    def go_back(self):
+    def go_back(self) -> Optional[str]:
         if len(self.last_10_items) > 1:
             return self.last_10_items.popleft()
-        else:
-            return None
+        return None
 
-    def add_favorite(self):
+    def add_favorite(self) -> None:
         # get the arguments sent to the menu item (menu name, link to item and service type etc)
 
         args = self.menu.items[self.menu.current_option].__getattribute__('args')
@@ -134,16 +138,13 @@ class menu_manager:
         menuService = args[3]
 
         # logging
-        logger.debug("Menu item: %s" % menuItem)
-        logger.debug("Menu item name: %s" % menuName)
-        logger.debug("Menu item link: %s" % menuLink)
-        logger.debug("Menu item service: %s" % menuService)
+        logger.debug("Menu item: %s", menuItem)
+        logger.debug("Menu item name: %s", menuName)
+        logger.debug("Menu item link: %s", menuLink)
+        logger.debug("Menu item service: %s", menuService)
 
         # create required json
-        favourite = {}
-        favourite['title'] = menuName
-        favourite['uri'] = menuLink
-        favourite['service'] = menuService
+        favourite = {'title': menuName, 'uri': menuLink, 'service': menuService}
         logger.debug(favourite)
         favourite = json.dumps(favourite)
 
@@ -162,8 +163,7 @@ class menu_manager:
 
         # check if message is a duplicate, or allow duplicates if last message was longer than 5 seconds ago
         if self.lastMessage != message and lastMessageTime > 2 or lastMessageTime > 5:
-             
-            if self.menu != None:
+            if self.menu is not None:
                 # self.menu.clearDisplay()
                 if clear == True:
                     self.menu.message(message.upper())
@@ -190,12 +190,12 @@ class menu_manager:
             logger.debug("Skipping duplicate message")
 
 
-    def show_track_info(self, input):
+    def show_track_info(self, payload: str) -> None:
         try:
 
             statusSymbols = {'play':'Now playing','stop':'Stopped','pause':'Paused'}
 
-            logger.debug("Track info args: " + str(input))
+            logger.debug("Track info args: %s", input)
             input = json.loads(input)
 
             for i in input:
@@ -216,7 +216,7 @@ class menu_manager:
                 tech_info_list = [status, bitrate, samplerate, bitdepth, channels]
                 # only join items with a status that isn't None
                 tech_info_filtered = ': '.join(str(item) for item in tech_info_list if item is not None)
-                tech_info = "({tech})".format(tech=tech_info_filtered)
+                tech_info = f"({tech_info_filtered})"
 
                 first_line_list = [title, artist]
                 second_line_list = [album, tech_info]
@@ -225,14 +225,14 @@ class menu_manager:
                 first_line = ': '.join(str(item) for item in first_line_list if item is not None)
                 second_line = ' '.join(str(item) for item in second_line_list if item is not None)
 
-                message = "{first}\n{second}".format(first=first_line, second=second_line)
+                message = f"{first_line}\n{second_line}"
                 self.display_message(message, autoscroll=True)
 
         except Exception as e:
-            logger.error("Failed to process track info: " + str(e))
+            logger.error("Failed to process track info: %s", e)
 
 
-    def show_message(self, input):
+    def show_message(self, payload: str) -> None:
         ## Example
         # message = []
         # message.append({
@@ -243,32 +243,30 @@ class menu_manager:
         # message = json.dumps(message)
         # self.menuManagerQ.put({'message':message})
 
-        logger.debug("Message input: " + str(input))
+        logger.debug("Message input: %s", input)
         input = json.loads(input)
 
         for i in input:
-            logger.debug("Message input: " + str(i))
+            logger.debug("Message input: %s", i)
             try:
                 type = i.get('type', None)
                 title = i.get('title', None)
                 message = i.get('message', None)
 
                 if title:
-                    message = "{title}\n{message}".format(title=title, message=message)
-                else:
-                    message = message
+                    message = f"{title}\n{message}"
                     
                 self.display_message(message, autoscroll=True)
             except Exception as e:
-                logger.error("Failed to process message: " + str(e))
+                logger.error("Failed to process message: %s", e)
 
 
-    def build_menu(self, input, remember=True):
+    def build_menu(self, payload: str, remember: bool = True):
 
         # possible types that are folders
         folderTypes = ['folder', '-category', 'favourites', 'playlist', 'music_service']
 
-        logger.debug("Message menu: " + str(input))
+        logger.debug("Message menu: %s", input)
         input = json.loads(input)
         
         # check if the instance is a list (i.e. the input from volumio)
@@ -285,16 +283,14 @@ class menu_manager:
 
         # clear the menu if the next menu has some items
         if menu:
-            if self.menu != None:
+            if self.menu is not None:
                 self.menu.items = []
         else:
-            return(self.display_message("No items in menu"))
+            return self.display_message("No items in menu")
 
         # sort menu by type if it wasnt sorted already
-        if menu[0].get('position', None) != None:
-            menu = sorted(menu, key=lambda x: (
-                (x.get('position'))  # Sort by position
-            ))
+        if menu and menu[0].get('position') is not None:
+            menu = sorted(menu, key=lambda x: (x.get('position')))
         else:
             menu = sorted(menu, key=lambda x: (
                 (any(x.get('type', '').endswith(folder_type) for folder_type in folderTypes),  # Check if any folderType matches the end of the 'type'
@@ -305,7 +301,7 @@ class menu_manager:
         counter = 0
 
         for i in menu:
-            logger.debug("Menu input: " + str(i))
+            logger.debug("Menu input: %s", i)
             try:
                 buttonName = i.get('title', None)
                 buttonLink = i.get('uri', None)
@@ -315,23 +311,22 @@ class menu_manager:
                 if buttonName == "":
                     buttonName = f"Untitled {counter}"
 
-                if buttonType:
-                    if any(buttonType.endswith(folder_type) for folder_type in folderTypes):
-                        buttonName = f"+{buttonName}"
+                if buttonType and any(buttonType.endswith(folder_type) for folder_type in folderTypes):
+                    buttonName = f"+{buttonName}"
 
                 if buttonService:
-                    menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, buttonService])
+                            menuItem = FunctionItem(buttonName, self.resolve_item, [counter, buttonName, buttonLink, buttonService])
                 # genres in webradio do not seem to return it's service type, so capture this and resolve
                 elif not buttonService and re.match('radio(\/.+)?', buttonLink):
-                    menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, 'webradio'])
+                    menuItem = FunctionItem(buttonName, self.resolve_item, [counter, buttonName, buttonLink, 'webradio'])
                 else:
-                    menuItem = FunctionItem(buttonName, self.resolveItem, [counter, buttonName, buttonLink, None])
+                    menuItem = FunctionItem(buttonName, self.resolve_item, [counter, buttonName, buttonLink, None])
                 # add to main menu
                 self.menu.append_item(menuItem)
                 counter += 1
 
             except Exception as e:
-                logger.error("Failed to process menu input: " +str(e))
+                logger.error("Failed to process menu input: %s", e)
         
         self.menu.current_option = index
 
@@ -339,27 +334,32 @@ class menu_manager:
         # if you do not return the menu it will render the original one again
         return self.menu.render()
 
-
-    def resolveItem(self, item_index, buttonName, buttonLink, buttonService):
-        logger.debug("item %d pressed" % (item_index))
-        logger.debug("item name: %s" % (buttonName))
-        logger.debug("item link: %s" % (buttonLink))
-        logger.debug("item link: %s" % (buttonService))
-        self.volumioQ.put({'button':buttonLink})
+    def resolve_item(self, item_index: int, button_name: str, button_link: str, button_service: str) -> None:
+        logger.debug("item %d pressed", item_index)
+        logger.debug("item name: %s", button_name)
+        logger.debug("item link: %s", button_link)
+        logger.debug("item service: %s", button_service)
+        self.volumioQ.put({'button': button_link})
 
 
     # exit sub menu
-    def exitSubMenu(self, submenu):
+    def exit_sub_menu(self, submenu):
         return submenu.exit()
 
+    # Backwards compatibility aliases
+    resolveItem = resolve_item
+    exitSubMenu = exit_sub_menu
 
     def dimmer(self):
         self.menu.lcd.displayToggle()
 
 
-    def render_bars(self, input):
-        bar = int(input / 100 * 16)
+    def render_bars(self, percent: int) -> str:
+        bar = int(percent / 100 * 16)
         bars = '\240' * bar
         return bars
+
+# Backwards compatibility alias
+menu_manager = MenuManager
 
 

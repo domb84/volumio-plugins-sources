@@ -2,12 +2,9 @@
 from time import sleep
 
 import logging
+import queue
+from typing import Optional
 logger = logging.getLogger("Volumio Functions")
-logger.setLevel(logging.WARNING)
-# Create a handler that prints to console
-ch = logging.StreamHandler()
-ch.setLevel(logging.WARNING)
-logger.addHandler(ch)
 
 # set socketio logging
 logging.getLogger('socketio').setLevel(logging.WARNING)
@@ -17,12 +14,14 @@ import socketio
 import re
 from retrying import retry
 
-class volumio:
+class Volumio:
+    """Socket.IO client to Volumio: translates events into menu messages."""
 
-    def __init__(self, volumioQ, menuManagerQ):
+    def __init__(self, volumioQ: 'queue.Queue', menuManagerQ: 'queue.Queue', stop_event=None):
         self.volumioQ = volumioQ
         self.menuManagerQ = menuManagerQ
         self._waiting = .1
+        self.stop_event = stop_event
 
 
         self.ws_api = "http://localhost:3000"
@@ -38,75 +37,75 @@ class volumio:
 
         # define callback functions
         self.sio.on('pushState', self._on_push_state)
-        self.sio.on('pushBrowseLibrary', self._onPushBrowseLibrary)
+        self.sio.on('pushBrowseLibrary', self._on_push_browse_library)
         self.sio.on('addToFavourites', self._on_response)
         self.sio.on('pushToastMessage', self._on_toast)
         self.sio.on('urifavourites', self._on_response)
-        self.sio.on('pushBrowseSources', self._onPushBrowseSources)
+        self.sio.on('pushBrowseSources', self._on_push_browse_sources)
 
         # setup globals
         self.last_state_list = list()
 
-        queues = [self.volumioQ]
+        # Process incoming requests from the volumioQ using blocking get
+        while not (self.stop_event and self.stop_event.is_set()):
+            try:
+                item = self.volumioQ.get(timeout=0.5)
+            except queue.Empty:
+                continue
 
-        while True:
-            for queue in queues:
-                while not queue.empty():
-                    item = queue.get()
+            try:
+                # parse uri
+                if 'show' in item:
+                    if item['show'] == 'info':
+                        self.get_state()
+                        logger.debug("%s", item)
 
-                    try:
-                        # parse uri
-                        if 'show' in item:
-                            if item['show'] == 'info':
-                                self.get_state()
-                                logger.debug(f"{item}")
+                elif 'button' in item:
+                    if item['button'] == 'menu':
+                        self.get_browse_sources()
+                        logger.debug("%s", item)
 
-                        elif 'button' in item:
-                            if item['button'] == 'menu':
-                                self.getBrowseSources()
-                                logger.debug(f"{item}")
+                    # if it's a stream, play it
+                    if re.match(r'(https|http|spotify:track):(\/\/)? .+ (\/)?', item['button']):
+                        self.play(item['button'])
+                        logger.debug("%s", item)
 
-                            # if it's a stream, play it
-                            if re.match('(https|http|spotify:track):(\/\/)?.+(\/)?.+', item['button']):
-                                self.play(item['button'])
-                                logger.debug(f"{item}")
+                    # else list the items below it 
+                    elif re.match(r'(radio|spotify)(\/.*)?', item['button']):
+                        self.get_sources(item['button'])
+                        logger.debug("%s", item)
 
-                            # else list the items below it 
-                            elif re.match('(radio|spotify)(\/.+)?', item['button']):
-                                self.get_sources(item['button'])
-                                logger.debug(f"{item}")
+                    # else list the items below it 
+                    elif item['button'] == 'stop':
+                        self.stop()
+                        logger.debug("%s", item)
 
-                            # else list the items below it 
-                            elif item['button'] == 'stop':
-                                self.stop()
-                                logger.debug(f"{item}")
+                    # TODO: this is too broad, fix so only menus are rendered
+                    elif re.match(r'([a-zA-Z0-9_-])', item['button']):
+                        self.get_sources(item['button'])
+                        logger.debug("%s", item)
 
-                            # TODO: this is too broad, fix so only menus are rendered
-                            elif re.match('([a-zA-Z0-9_-])', item['button']):
-                                self.get_sources(item['button'])
-                                logger.debug(f"{item}")
+                    self.volumioQ.task_done()
 
-                            self.volumioQ.task_done()
+                elif 'memory' in item:
+                    input = json.loads(item['memory'])
+                    logger.debug(input)
+                    title = input.get('title', None)
+                    uri = input.get('uri', None)
+                    service = input.get('service', None)
 
-                        elif 'memory' in item:
-                            input = json.loads(item['memory'])
-                            logger.debug(input)
-                            title = input.get('title', None)
-                            uri = input.get('uri', None)
-                            service = input.get('service', None)
+                    # TODO: search to see if it's already been added and remove in that instance
+                    # self.search(title,uri,service)
+                    # self.remove_favourite(title,uri,service)
+                    self.add_favourite(title,uri,service)
 
-                            # TODO: search to see if it's already been added and remove in that instance
-                            # self.search(title,uri,service)
-                            # self.remove_favourite(title,uri,service)
-                            self.add_favourite(title,uri,service)
+                else:
+                    logger.warning("Queue item did not match filter: %s", item)
 
-                        else:
-                            logger.warning("Queue item did not match filter: " + str(item))
+            except Exception as e:
+                logger.error("Failed to process queue item: %s", e)
 
-                    except Exception as e:
-                        logger.debug("Failed to process queue item: " + str(e))
-            sleep(0.2)
-
+        logger.info('Volumio worker stopping')
 
     def _send(self, command, args=None, callback=None, namespace=None):
         self.sio.emit(command, args, callback=callback, namespace=namespace)
@@ -119,10 +118,10 @@ class volumio:
 
     def _on_toast(self, *args):
         try:
-            logger.debug("Toast args: " + str(args))
-            logger.debug("Toast args length: " + str(len(args)))
+            logger.debug("Toast args: %s", args)
+            logger.debug("Toast args length: %d", len(args))
             toast = args[0]
-            logger.debug("Toast: " + str(toast))
+            logger.debug("Toast: %s", toast)
 
             type = toast.get('type', None)
             title = toast.get('title', None)
@@ -134,16 +133,16 @@ class volumio:
                 'title': title,
                 'message': message
             })
-            logger.debug("Toast: " + str(toast_list))
+            logger.debug("Toast: %s", toast_list)
             result = json.dumps(toast_list)
-            logger.debug("Toast as json: " + str(result))
+            logger.debug("Toast as json: %s", result)
             self.menuManagerQ.put({'message':result})
 
         except Exception as e:
             logger.error("Failed to processes incoming toast: " + str(e))
 
     def _on_response(self, *args):
-        logger.debug(args)
+        logger.debug("%s", args)
 
 
     def _on_push_state(self, *args):
@@ -211,7 +210,7 @@ class volumio:
             # This happens between every track change so don't show anything in this instance else we spam the display with 'stop' events.
             elif status != 'play' and all_none:
                 message = [{'message':'No media is playing'}]
-                message=json.dumps(message)
+                message = json.dumps(message)
                 self.menuManagerQ.put({'message':message})
 
             # elif clean_state_list == self.last_state_list:
@@ -220,8 +219,8 @@ class volumio:
             else:
                 result = json.dumps(clean_state_list)
                 self.last_state_list = clean_state_list
-                logger.debug("State list was this before cleaning: %s" % state_list)
-                logger.debug("Sending clean state list: %s" % result)
+                logger.debug("State list was this before cleaning: %s", state_list)
+                logger.debug("Sending clean state list: %s", result)
                 self.menuManagerQ.put({'info':result})
 
 
@@ -229,8 +228,8 @@ class volumio:
             logger.error("Failed to processes incoming state: " + str(e))
             
 
-    def _onPushBrowseLibrary(self, *args):
-        logger.debug(f"Received: {args}")
+    def _on_push_browse_library(self, *args):
+        logger.debug("Received: %s", args)
 
         sources_list = list()
 
@@ -253,16 +252,16 @@ class volumio:
                         })
         
         else:
-            logger.warning(f"Received empty data: {args}")
+            logger.warning("Received empty data: %s", args)
             return
  
         
         result = json.dumps(sources_list)
-        logger.debug(result)
+        logger.debug("%s", result)
         self.menuManagerQ.put({'menu':result})
 
         
-    def _onPushBrowseSources(self, *args):
+    def _on_push_browse_sources(self, *args):
     
         sources_list = list()
 
@@ -286,8 +285,9 @@ class volumio:
             sources = lists['items']
 
             for source in sources:
-                # Account for items with no menu type set by using the uri instead (fixes Favorites having no type)
-                if source.get('type', None).strip() == '':
+                # Ensure menuType is always defined; use uri as fallback for empty type
+                menuType = source.get('type', None)
+                if isinstance(menuType, str) and menuType.strip() == '':
                     menuType = source.get('uri', None)
 
                 sources_list.append({
@@ -302,22 +302,25 @@ class volumio:
         logger.debug(result)
         self.menuManagerQ.put({'menu':result})
 
-    def getBrowseSources(self):
+    def get_browse_sources(self) -> None:
         self._send('getBrowseSources')
 
-    def get_sources(self, link):
-        logger.debug("Get sources from %s" % link)
-        self._send('browseLibrary', {'uri':link})
+    # Backwards compatibility alias
+    getBrowseSources = get_browse_sources
 
-    def add_favourite(self, title, link, service):
+    def get_sources(self, link: str) -> None:
+        logger.debug("Get sources from %s", link)
+        self._send('browseLibrary', {'uri': link})
+
+    def add_favourite(self, title: Optional[str], link: Optional[str], service: Optional[str]) -> None:
         logger.debug(f"Add {title} from {link} to {service} favourites")
-        self._send('addToFavourites', {'uri':link, 'title':title, 'service':service})
+        self._send('addToFavourites', {'uri': link, 'title': title, 'service': service})
 
-    def remove_favourite(self, title, link, service):
+    def remove_favourite(self, title: Optional[str], link: Optional[str], service: Optional[str]) -> None:
         logger.debug(f"Remove {title} from {link} to {service} favourites")
-        self._send('removeFromFavourites', {'uri':link, 'title':title, 'service':service})
+        self._send('removeFromFavourites', {'uri': link, 'title': title, 'service': service})
 
-    def search(self, title, link, service, playlist=None):
+    def search(self, title: str, link: str, service: str, playlist: Optional[str] = None) -> None:
         # TODO:
         # this feature does not work as search query is not documented
         # https://volumio.github.io/docs/API/WebSocket_APIs.html
@@ -329,7 +332,7 @@ class volumio:
             self._send('search', {'uri':link, 'title':title, 'service':service})
 
     
-    def play(self, uri):
+    def play(self, uri: str) -> None:
         # self._send('clearQueue')
         if re.match('(https|http):\/\/.+\/.+', uri):
             self._send('addPlay', {'status':'play', 'service':'webradio', 'uri':uri})
@@ -339,6 +342,9 @@ class volumio:
             logger.debug("URi does not match webradio or spotify: " + str(uri))
 
 
-    def stop(self):
+    def stop(self) -> None:
         self._send('stop')
         self._send('clearQueue')
+
+# Backwards compatibility alias
+volumio = Volumio
