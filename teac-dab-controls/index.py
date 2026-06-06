@@ -49,6 +49,25 @@ logger.setLevel(logging.DEBUG)
 stop_event = threading.Event()
 
 
+def install_thread_start_logger() -> None:
+    original_run = threading.Thread.run
+
+    def instrumented_run(self, *args, **kwargs):
+        current = threading.current_thread()
+        native_id = getattr(current, 'native_id', None)
+        if native_id is None:
+            native_id = get_native_thread_id()
+        logger.info(
+            "Thread started: name=%s ident=%s native_id=%s",
+            current.name,
+            current.ident,
+            native_id,
+        )
+        return original_run(self, *args, **kwargs)
+
+    threading.Thread.run = instrumented_run
+
+
 def signal_handler(sig: int, frame: Any) -> None:
     logger.debug("Caught signal: %s", sig)
     stop_event.set()
@@ -194,6 +213,7 @@ def main() -> None:
         logger.error("Unable to find configuration; exiting")
         raise SystemExit(1)
 
+    install_thread_start_logger()
     threads = build_threads(config_data)
     for thread in threads:
         thread.start()
