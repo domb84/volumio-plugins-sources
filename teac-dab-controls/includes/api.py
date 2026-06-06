@@ -2,7 +2,7 @@ from fastapi import FastAPI
 import logging
 import threading
 from queue import Queue
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 from uvicorn import Config, Server
 
 logger = logging.getLogger("ApiWrapper")
@@ -16,7 +16,7 @@ class ApiWrapper:
 
         # Define a route to handle incoming POST requests in FastAPI
         @self.app.post('/post_listener')
-        async def post_handler(data: dict[str, Any]) -> dict[str, str]:
+        async def post_handler(data: Dict[str, Any]) -> Dict[str, str]:
             logger.debug("Received POST data: %s", data)
             self.shared_queue.put(data)
             return {'message': 'Data received successfully!'}
