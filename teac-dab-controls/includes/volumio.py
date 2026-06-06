@@ -1,5 +1,4 @@
 # https://volumio.github.io/docs/API/API_Overview.html
-from time import sleep
 
 import ctypes
 import logging
@@ -46,6 +45,10 @@ from retrying import retry
 
 class Volumio:
     """Socket.IO client to Volumio: translates events into menu messages."""
+
+    STREAM_URI_REGEX = re.compile(r'^(https?|spotify:track):(\/\/)?.+')
+    BROWSE_URI_REGEX = re.compile(r'^(?:radio(?:\/.*)?|spotify(?::(?!track:).+|\/.*)?)$')
+    SAFE_MENU_ITEM_REGEX = re.compile(r'^[A-Za-z0-9_-]+$')
 
     def __init__(self, volumioQ: 'queue.Queue', menuManagerQ: 'queue.Queue', stop_event=None):
         current = threading.current_thread()
@@ -94,66 +97,76 @@ class Volumio:
                 continue
 
             try:
-                # parse uri
-                if 'show' in item:
-                    if item['show'] == 'info':
-                        self.get_state()
-                        logger.debug("%s", item)
-
-                elif 'button' in item:
-                    if item['button'] == 'menu':
-                        self.get_browse_sources()
-                        logger.debug("%s", item)
-                        self.volumioQ.task_done()
-                        continue
-
-                    # if it's a stream, play it
-                    if re.match(r'^(https?|spotify:track):(\/\/)?.+', item['button']):
-                        self.play(item['button'])
-                        logger.debug("%s", item)
-
-                    # Spotify playlists, albums, artists, shows, web radio and other browseable URIs
-                    elif re.match(r'^(?:radio(?:\/.*)?|spotify(?::(?!track:).+|\/.*)?)$', item['button']):
-                        self.get_sources(item['button'])
-                        logger.debug("%s", item)
-
-                    # else list the items below it 
-                    elif item['button'] == 'stop':
-                        self.stop()
-                        logger.debug("%s", item)
-
-                    # TODO: this is too broad, fix so only menus are rendered
-                    elif re.match(r'^[A-Za-z0-9_-]+$', item['button']):
-                        self.get_sources(item['button'])
-                        logger.debug("%s", item)
-
-                    self.volumioQ.task_done()
-
-                elif 'memory' in item:
-                    input = json.loads(item['memory'])
-                    logger.debug(input)
-                    title = input.get('title', None)
-                    uri = input.get('uri', None)
-                    service = input.get('service', None)
-
-                    # TODO: search to see if it's already been added and remove in that instance
-                    # self.search(title,uri,service)
-                    # self.remove_favourite(title,uri,service)
-                    self.add_favourite(title,uri,service)
-                    self.volumioQ.task_done()
-
-                else:
-                    logger.warning("Queue item did not match filter: %s", item)
-                    self.volumioQ.task_done()
-
+                self._process_queue_item(item)
             except Exception as e:
                 logger.error("Failed to process queue item: %s", e)
+            finally:
                 try:
                     self.volumioQ.task_done()
                 except Exception:
                     pass
 
         logger.info('Volumio worker stopping')
+
+    def _process_queue_item(self, item):
+        if 'show' in item:
+            self._process_show_item(item)
+        elif 'button' in item:
+            self._process_button_item(item['button'])
+        elif 'memory' in item:
+            self._process_memory_item(item)
+        else:
+            logger.warning("Queue item did not match filter: %s", item)
+
+    def _process_show_item(self, item):
+        if item.get('show') == 'info':
+            self.get_state()
+            logger.debug("%s", item)
+
+    def _process_button_item(self, button: str):
+        if button == 'menu':
+            self.get_browse_sources()
+            logger.debug("%s", button)
+            return
+
+        if self.STREAM_URI_REGEX.match(button):
+            self.play(button)
+            logger.debug("%s", button)
+            return
+
+        if self.BROWSE_URI_REGEX.match(button):
+            self.get_sources(button)
+            logger.debug("%s", button)
+            return
+
+        if button == 'stop':
+            self.stop()
+            logger.debug("%s", button)
+            return
+
+        if self.SAFE_MENU_ITEM_REGEX.match(button):
+            self.get_sources(button)
+            logger.debug("%s", button)
+            return
+
+        logger.warning("Unhandled button item: %s", button)
+
+    def _process_memory_item(self, item):
+        try:
+            payload = json.loads(item['memory'])
+        except json.JSONDecodeError as e:
+            logger.error("Invalid memory payload: %s", e)
+            return
+
+        logger.debug("%s", payload)
+        title = payload.get('title')
+        uri = payload.get('uri')
+        service = payload.get('service')
+
+        # TODO: search to see if it's already been added and remove in that instance
+        # self.search(title, uri, service)
+        # self.remove_favourite(title, uri, service)
+        self.add_favourite(title, uri, service)
 
     def _send(self, command, args=None, callback=None, namespace=None):
         self.sio.emit(command, args, callback=callback, namespace=namespace)
@@ -279,76 +292,53 @@ class Volumio:
     def _on_push_browse_library(self, *args):
         logger.debug("Received: %s", args)
 
-        sources_list = list()
-
-        if args[0] != {}:
-            # Some sources are a mix of list items and sources, so iterate over all of them
-            main_source = args[0].get('navigation', {}).get('lists', [])
-
-            if main_source:
-                for lists in main_source:
-
-                    sources = lists['items']
-
-                    for source in sources:
-                        sources_list.append({
-                            'title': source.get('title', None),
-                            'uri': source.get('uri', None),
-                            'service': source.get('service', None),
-                            'type': source.get('type', None),
-                            'position': source.get('position', None)
-                        })
-        
-        else:
+        if not args or not args[0]:
             logger.warning("Received empty data: %s", args)
             return
- 
-        
+
+        main_source = args[0].get('navigation', {}).get('lists', [])
+        sources_list = []
+
+        for lists in main_source:
+            sources_list.extend(self._format_browse_items(lists.get('items', [])))
+
         result = json.dumps(sources_list)
         logger.debug("%s", result)
-        self.menuManagerQ.put({'menu':result})
+        self.menuManagerQ.put({'menu': result})
 
-        
     def _on_push_browse_sources(self, *args):
-    
-        sources_list = list()
+        if not args or not args[0]:
+            logger.warning("Received empty data: %s", args)
+            return
 
         items = args[0]
-        # Rename fields
         for item in items:
             item['title'] = item.pop('name', None)
             item['type'] = item.pop('plugin_type', None)
             item['service'] = item.pop('plugin_name', None)
 
-        main_source = [{
-        "availableListViews":[
-            "grid",
-            "list"
-        ],
-        "items":items
-        }]
-
-        for lists in main_source:
-
-            sources = lists['items']
-
-            for source in sources:
-                # Ensure menuType is always defined; use uri as fallback for empty type
-                menuType = source.get('type', None)
-                if isinstance(menuType, str) and menuType.strip() == '':
-                    menuType = source.get('uri', None)
-
-                sources_list.append({
-                    'title': source.get('title', None),
-                    'uri': source.get('uri', None),
-                    'service': source.get('service', None),
-                    'type': menuType,
-                    'position': source.get('position', None)
-                })
-
+        sources_list = self._format_browse_items(items)
         result = json.dumps(sources_list)
         logger.debug(result)
-        self.menuManagerQ.put({'menu':result})
+        self.menuManagerQ.put({'menu': result})
+
+    def _format_browse_items(self, items):
+        sources_list = []
+
+        for source in items:
+            menu_type = source.get('type')
+            if isinstance(menu_type, str) and menu_type.strip() == '':
+                menu_type = source.get('uri')
+
+            sources_list.append({
+                'title': source.get('title'),
+                'uri': source.get('uri'),
+                'service': source.get('service'),
+                'type': menu_type,
+                'position': source.get('position')
+            })
+
+        return sources_list
 
     def get_browse_sources(self) -> None:
         self._send('getBrowseSources')
