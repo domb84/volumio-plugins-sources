@@ -195,10 +195,10 @@ class MenuManager:
 
             statusSymbols = {'play':'Now playing','stop':'Stopped','pause':'Paused'}
 
-            logger.debug("Track info args: %s", input)
-            input = json.loads(input)
+            logger.debug("Track info args: %s", payload)
+            input_data = json.loads(payload)
 
-            for i in input:
+            for i in input_data:
                 logger.debug("Track info input: " + str(i))
                 
                 if i['status'] in statusSymbols:
@@ -243,10 +243,10 @@ class MenuManager:
         # message = json.dumps(message)
         # self.menuManagerQ.put({'message':message})
 
-        logger.debug("Message input: %s", input)
-        input = json.loads(input)
+        logger.debug("Message input: %s", payload)
+        input_data = json.loads(payload)
 
-        for i in input:
+        for i in input_data:
             logger.debug("Message input: %s", i)
             try:
                 type = i.get('type', None)
@@ -266,15 +266,15 @@ class MenuManager:
         # possible types that are folders
         folderTypes = ['folder', '-category', 'favourites', 'playlist', 'music_service']
 
-        logger.debug("Message menu: %s", input)
-        input = json.loads(input)
+        logger.debug("Message menu: %s", payload)
+        input_data = json.loads(payload)
         
         # check if the instance is a list (i.e. the input from volumio)
-        if isinstance(input, list):
-            input = {'menu': input, 'index': 0}
+        if isinstance(input_data, list):
+            input_data = {'menu': input_data, 'index': 0}
 
-        index = input.get('index', 0)
-        menu = input.get('menu', None)
+        index = input_data.get('index', 0)
+        menu = input_data.get('menu', None)
 
         # save last rendered menu for back button
         if remember:
