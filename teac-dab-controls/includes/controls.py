@@ -128,8 +128,8 @@ class Controls:
 
         # Ensure a sensible minimum poll rate to avoid tight busy-loops
         # (a value of 0 can happen if the config is set to 0)
-        # Use a slightly larger minimum to reduce CPU on bit-banged SPI
-        MIN_POLL = 0.05
+        # Use a larger minimum to reduce CPU on bit-banged SPI
+        MIN_POLL = 0.25
         if button_poll_rate <= 0:
             button_poll_rate = MIN_POLL
         else:
