@@ -158,10 +158,10 @@ class Controls:
         button_debounce_rate /= 1000  
         button_cooldown_rate /= 1000
 
-        # Ensure a sensible minimum poll rate to avoid tight busy-loops
+        # Ensure a sensible minimum poll interval to avoid tight busy-loops
         # (a value of 0 can happen if the config is set to 0)
-        # Use a larger minimum to reduce CPU on bit-banged SPI
-        MIN_POLL = 0.25
+        # Use a lower minimum to increase polling frequency for bit-banged SPI
+        MIN_POLL = 0.05
         if button_poll_rate <= 0:
             button_poll_rate = MIN_POLL
         else:
@@ -371,7 +371,7 @@ class Controls:
                     logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
 
             # Adjust sleep time to reduce loop frequency
-            time.sleep(0.25)
+            time.sleep(0.05)
 
         # Close SPI connection when done
         spi.close()
