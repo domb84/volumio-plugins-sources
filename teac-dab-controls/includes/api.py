@@ -10,7 +10,7 @@ logger = logging.getLogger("ApiWrapper")
 class ApiWrapper:
     """Run a FastAPI instance in a background thread and push POSTed JSON to a shared queue."""
 
-    def __init__(self, shared_queue: Queue[Any]) -> None:
+    def __init__(self, shared_queue: Queue) -> None:
         self.app = FastAPI()
         self.shared_queue = shared_queue
 
