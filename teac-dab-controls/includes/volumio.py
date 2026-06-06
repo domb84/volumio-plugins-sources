@@ -112,8 +112,8 @@ class Volumio:
                         self.play(item['button'])
                         logger.debug("%s", item)
 
-                    # else list the items below it 
-                    elif re.match(r'^(radio|spotify)(\/.*)?$', item['button']):
+                    # Spotify playlists, albums, artists, shows, web radio and other browseable URIs
+                    elif re.match(r'^(?:radio(?:\/.*)?|spotify(?::(?!track:).+|\/.*)?)$', item['button']):
                         self.get_sources(item['button'])
                         logger.debug("%s", item)
 
