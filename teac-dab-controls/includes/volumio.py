@@ -12,8 +12,26 @@ def get_native_thread_id() -> Optional[int]:
     if hasattr(threading, 'get_native_id'):
         return threading.get_native_id()
     try:
-        libc = ctypes.CDLL('libc.so.6')
-        return libc.syscall(186)
+        libc = ctypes.CDLL('libc.so.6', use_errno=True)
+        if hasattr(libc, 'gettid'):
+            tid = libc.gettid()
+            tid = int(tid)
+            return tid if tid > 0 else None
+        arch = platform.machine()
+        syscall_map = {
+            'x86_64': 186,
+            'i386': 224,
+            'i686': 224,
+            'armv7l': 224,
+            'armv6l': 224,
+            'aarch64': 178,
+        }
+        nr = syscall_map.get(arch)
+        if nr is None:
+            return None
+        tid = libc.syscall(nr)
+        tid = int(tid)
+        return tid if tid > 0 else None
     except Exception:
         return None
 
@@ -30,7 +48,7 @@ class Volumio:
 
     def __init__(self, volumioQ: 'queue.Queue', menuManagerQ: 'queue.Queue', stop_event=None):
         current = threading.current_thread()
-        native_id = getattr(current, 'native_id', None)
+        native_id = getattr(current, 'native_id', None) or get_native_thread_id()
         logger.info("Volumio starting in thread %s native_id=%s ident=%s", current.name, native_id, current.ident)
         self.volumioQ = volumioQ
         self.menuManagerQ = menuManagerQ
