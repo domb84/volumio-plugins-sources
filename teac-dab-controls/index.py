@@ -167,6 +167,7 @@ def main() -> None:
     threads = build_threads(config_data)
     for thread in threads:
         thread.start()
+        logger.info("Started thread %s ident=%s", thread.name, thread.ident)
 
     try:
         while True:

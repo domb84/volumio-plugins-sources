@@ -1,5 +1,6 @@
 import logging
 import queue
+import threading
 from collections import deque
 from datetime import datetime
 from time import sleep
@@ -17,6 +18,8 @@ class MenuManager:
     """LCD menu manager: consumes control/menu queues and updates the LCD."""
 
     def __init__(self, controlQ: 'queue.Queue', volumioQ: 'queue.Queue', menuManagerQ: 'queue.Queue', lcdRS: int = 7, lcdE: int = 8, lcdD4: int = 25, lcdD5: int = 24, lcdD6: int = 23, lcdD7: int = 15, stop_event=None):
+        current = threading.current_thread()
+        logger.info("MenuManager starting in thread %s ident=%s", current.name, current.ident)
         self.controlQ = controlQ
         self.volumioQ = volumioQ
         self.menuManagerQ = menuManagerQ

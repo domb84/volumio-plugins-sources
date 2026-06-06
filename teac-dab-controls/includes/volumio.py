@@ -3,6 +3,7 @@ from time import sleep
 
 import logging
 import queue
+import threading
 from typing import Optional
 logger = logging.getLogger("Volumio Functions")
 
@@ -18,6 +19,8 @@ class Volumio:
     """Socket.IO client to Volumio: translates events into menu messages."""
 
     def __init__(self, volumioQ: 'queue.Queue', menuManagerQ: 'queue.Queue', stop_event=None):
+        current = threading.current_thread()
+        logger.info("Volumio starting in thread %s ident=%s", current.name, current.ident)
         self.volumioQ = volumioQ
         self.menuManagerQ = menuManagerQ
         self._waiting = .1

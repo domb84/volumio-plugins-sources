@@ -37,6 +37,8 @@ class Controls:
     """
 
     def __init__(self, controlQ: Queue, config: ControlsConfig, stop_event: Optional[threading.Event] = None) -> None:
+        current = threading.current_thread()
+        logger.info("Controls starting in thread %s ident=%s", current.name, current.ident)
         logger.debug("Loading controls")
         self.controlQ = controlQ
         self.config = config
@@ -134,6 +136,8 @@ class Controls:
             button_poll_rate = MIN_POLL
         else:
             button_poll_rate = max(button_poll_rate, MIN_POLL)
+
+        logger.info("Bitbanged controls polling every %.3fs", button_poll_rate)
 
         # Use monotonic time for debounce/cooldown
         button_states = {
