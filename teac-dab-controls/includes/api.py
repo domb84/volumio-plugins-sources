@@ -23,7 +23,8 @@ class ApiWrapper:
 
     def run_app(self, host: str = '0.0.0.0', port: int = 8889, stop_event: Optional[threading.Event] = None) -> None:
         current = threading.current_thread()
-        logger.info("API server starting in thread %s ident=%s", current.name, current.ident)
+        native_id = getattr(current, 'native_id', None)
+        logger.info("API server starting in thread %s native_id=%s ident=%s", current.name, native_id, current.ident)
         # Use programmatic Server so we can stop it cleanly
         config = Config(app=self.app, host=host, port=port, log_level='info')
         server = Server(config=config)

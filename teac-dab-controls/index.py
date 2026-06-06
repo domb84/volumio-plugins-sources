@@ -167,7 +167,8 @@ def main() -> None:
     threads = build_threads(config_data)
     for thread in threads:
         thread.start()
-        logger.info("Started thread %s ident=%s", thread.name, thread.ident)
+        native_id = getattr(thread, 'native_id', None)
+        logger.info("Started thread %s native_id=%s ident=%s", thread.name, native_id, thread.ident)
 
     try:
         while True:

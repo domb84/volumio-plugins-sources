@@ -20,7 +20,8 @@ class Volumio:
 
     def __init__(self, volumioQ: 'queue.Queue', menuManagerQ: 'queue.Queue', stop_event=None):
         current = threading.current_thread()
-        logger.info("Volumio starting in thread %s ident=%s", current.name, current.ident)
+        native_id = getattr(current, 'native_id', None)
+        logger.info("Volumio starting in thread %s native_id=%s ident=%s", current.name, native_id, current.ident)
         self.volumioQ = volumioQ
         self.menuManagerQ = menuManagerQ
         self._waiting = .1

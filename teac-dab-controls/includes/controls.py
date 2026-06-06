@@ -38,7 +38,8 @@ class Controls:
 
     def __init__(self, controlQ: Queue, config: ControlsConfig, stop_event: Optional[threading.Event] = None) -> None:
         current = threading.current_thread()
-        logger.info("Controls starting in thread %s ident=%s", current.name, current.ident)
+        native_id = getattr(current, 'native_id', None)
+        logger.info("Controls starting in thread %s native_id=%s ident=%s", current.name, native_id, current.ident)
         logger.debug("Loading controls")
         self.controlQ = controlQ
         self.config = config
