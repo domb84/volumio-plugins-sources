@@ -84,6 +84,8 @@ class MenuManager:
                     action = queueItem['control']
                     if action in self.control_actions:
                         self.menuAccessTime = datetime.now()
+                        if self._suppressed_info is not None:
+                            self._defer_info(self._suppressed_info)
                         self.control_actions[action]()
                     else:
                         logger.warning(f"Unknown control action: {action}")
