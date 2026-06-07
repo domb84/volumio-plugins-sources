@@ -14,6 +14,8 @@ import re
 
 logger = logging.getLogger("Menu Manager")
 
+_SCROLL_IDLE_SECONDS = 3.0
+
 from rpilcdmenu import RpiLCDMenu
 from rpilcdmenu.items import FunctionItem
 
@@ -38,6 +40,8 @@ class MenuManager:
         # log last message for deduplication
         self.lastMessage = ""
         self._pending_render_timer: Optional[threading.Timer] = None
+        self._suppressed_info: Optional[str] = None
+        self._info_release_timer: Optional[threading.Timer] = None
 
         # init menu
         self.menu = RpiLCDMenu(lcdRS, lcdE, [lcdD4, lcdD5, lcdD6, lcdD7], scrolling_menu=False)
@@ -87,7 +91,12 @@ class MenuManager:
                     if queueItem['menu']:
                         self.build_menu(queueItem['menu'],queueItem.get('remember', True))
                 elif 'info' in queueItem:
-                    self.show_track_info(queueItem['info'])
+                    idle = (datetime.now() - self.menuAccessTime).total_seconds()
+                    if idle < _SCROLL_IDLE_SECONDS:
+                        logger.debug("Deferring track info during menu activity")
+                        self._defer_info(queueItem['info'])
+                    else:
+                        self.show_track_info(queueItem['info'])
                 elif 'message' in queueItem:
                     self.show_message(queueItem['message'])
                 elif 'clear' in queueItem:
@@ -159,6 +168,21 @@ class MenuManager:
         # send to queue to create favourite
         self.volumioQ.put({'memory':favourite})
 
+
+    def _defer_info(self, info: str) -> None:
+        """Hold a track-info update until scroll activity has been idle for _SCROLL_IDLE_SECONDS."""
+        self._suppressed_info = info
+        if self._info_release_timer is not None:
+            self._info_release_timer.cancel()
+        self._info_release_timer = threading.Timer(_SCROLL_IDLE_SECONDS, self._flush_deferred_info)
+        self._info_release_timer.daemon = True
+        self._info_release_timer.start()
+
+    def _flush_deferred_info(self) -> None:
+        self._info_release_timer = None
+        if self._suppressed_info is not None:
+            info, self._suppressed_info = self._suppressed_info, None
+            self.show_track_info(info)
 
     def _schedule_deferred(self, callback, delay: float = 2.0) -> None:
         """Schedule a deferred LCD action (render or clear) without blocking the queue thread."""
