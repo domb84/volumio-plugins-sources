@@ -8,33 +8,6 @@ import threading
 from typing import Optional
 logger = logging.getLogger("Volumio Functions")
 
-def get_native_thread_id() -> Optional[int]:
-    if hasattr(threading, 'get_native_id'):
-        return threading.get_native_id()
-    try:
-        libc = ctypes.CDLL('libc.so.6', use_errno=True)
-        if hasattr(libc, 'gettid'):
-            tid = libc.gettid()
-            tid = int(tid)
-            return tid if tid > 0 else None
-        arch = platform.machine()
-        syscall_map = {
-            'x86_64': 186,
-            'i386': 224,
-            'i686': 224,
-            'armv7l': 224,
-            'armv6l': 224,
-            'aarch64': 178,
-        }
-        nr = syscall_map.get(arch)
-        if nr is None:
-            return None
-        tid = libc.syscall(nr)
-        tid = int(tid)
-        return tid if tid > 0 else None
-    except Exception:
-        return None
-
 # set socketio logging
 logging.getLogger('socketio').setLevel(logging.WARNING)
 
@@ -51,14 +24,11 @@ class Volumio:
     SAFE_MENU_ITEM_REGEX = re.compile(r'^[A-Za-z0-9_-]+$')
 
     def __init__(self, volumioQ: 'queue.Queue', menuManagerQ: 'queue.Queue', stop_event=None):
-        current = threading.current_thread()
-        native_id = getattr(current, 'native_id', None) or get_native_thread_id()
-        logger.info("Volumio starting in thread %s native_id=%s ident=%s", current.name, native_id, current.ident)
         self.volumioQ = volumioQ
         self.menuManagerQ = menuManagerQ
         self._waiting = .1
         self.stop_event = stop_event
-
+        self.last_core_state = None  # Track core state for deduplication
 
         self.ws_api = "http://localhost:3000"
         self.sio = socketio.Client(logger=False, engineio_logger=False,reconnection=True)
@@ -78,16 +48,6 @@ class Volumio:
         self.sio.on('pushToastMessage', self._on_toast)
         self.sio.on('urifavourites', self._on_response)
         self.sio.on('pushBrowseSources', self._on_push_browse_sources)
-
-        # setup globals
-        self.last_state_list = list()
-
-        thread_enumeration = []
-        for t in threading.enumerate():
-            thread_enumeration.append(
-                f"{t.name} ident={t.ident} native_id={getattr(t, 'native_id', None)} alive={t.is_alive()}"
-            )
-        logger.info("Volumio active Python threads after connect: %s", " | ".join(thread_enumeration))
 
         # Process incoming requests from the volumioQ using blocking get
         while not (self.stop_event and self.stop_event.is_set()):
@@ -251,7 +211,6 @@ class Volumio:
                 'channels': channels
             })
 
-
             # replace any occurences of null or "" with None so we can just check for None
             clean_state_list = [{k: None if v == "" else v for k, v in d.items()} for d in state_list]
             
@@ -274,15 +233,25 @@ class Volumio:
                 message = json.dumps(message)
                 self.menuManagerQ.put({'message':message})
 
-            # elif clean_state_list == self.last_state_list:
-            #     logger.debug("State not changed")
-
             else:
-                result = json.dumps(clean_state_list)
-                self.last_state_list = clean_state_list
-                logger.debug("State list was this before cleaning: %s", state_list)
-                logger.debug("Sending clean state list: %s", result)
-                self.menuManagerQ.put({'info':result})
+                # Deduplication: extract core content fields for comparison
+                core_state = (status, title, artist, album, uri, service)
+                
+                # Check if core content has changed
+                if self.last_core_state != core_state:
+                    # Core content changed - always send
+                    result = json.dumps(clean_state_list)
+                    self.last_core_state = core_state
+                    logger.debug("State changed: %s", core_state)
+                    self.menuManagerQ.put({'info':result})
+                elif any([bitrate, samplerate, bitdepth, channels]):
+                    # Audio info is now available - send the update with full info
+                    result = json.dumps(clean_state_list)
+                    logger.debug("Audio info now available: bitrate=%s, samplerate=%s", bitrate, samplerate)
+                    self.menuManagerQ.put({'info':result})
+                else:
+                    # Same core content, no new audio info - skip duplicate
+                    logger.debug("Duplicate state skipped: %s", core_state)
 
 
         except Exception as e:

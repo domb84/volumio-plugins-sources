@@ -1,8 +1,6 @@
-import ctypes
 import json
 import logging
 import os
-import platform
 import queue
 import signal
 import threading
@@ -12,33 +10,6 @@ from typing import Any, Dict, Optional, Tuple
 
 from includes import api, controls, menu_manager, volumio
 
-def get_native_thread_id() -> Optional[int]:
-    if hasattr(threading, 'get_native_id'):
-        return threading.get_native_id()
-    try:
-        libc = ctypes.CDLL('libc.so.6', use_errno=True)
-        if hasattr(libc, 'gettid'):
-            tid = libc.gettid()
-            tid = int(tid)
-            return tid if tid > 0 else None
-        arch = platform.machine()
-        syscall_map = {
-            'x86_64': 186,
-            'i386': 224,
-            'i686': 224,
-            'armv7l': 224,
-            'armv6l': 224,
-            'aarch64': 178,
-        }
-        nr = syscall_map.get(arch)
-        if nr is None:
-            return None
-        tid = libc.syscall(nr)
-        tid = int(tid)
-        return tid if tid > 0 else None
-    except Exception:
-        return None
-
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 CONFIG_PATH = Path("/data/configuration/user_interface/teac-dab-controls/config.json")
 
@@ -47,25 +18,6 @@ logger = logging.getLogger("Teac DAB controls")
 logger.setLevel(logging.DEBUG)
 
 stop_event = threading.Event()
-
-
-def install_thread_start_logger() -> None:
-    original_run = threading.Thread.run
-
-    def instrumented_run(self, *args, **kwargs):
-        current = threading.current_thread()
-        native_id = getattr(current, 'native_id', None)
-        if native_id is None:
-            native_id = get_native_thread_id()
-        logger.info(
-            "Thread started: name=%s ident=%s native_id=%s",
-            current.name,
-            current.ident,
-            native_id,
-        )
-        return original_run(self, *args, **kwargs)
-
-    threading.Thread.run = instrumented_run
 
 
 def signal_handler(sig: int, frame: Any) -> None:
@@ -213,20 +165,9 @@ def main() -> None:
         logger.error("Unable to find configuration; exiting")
         raise SystemExit(1)
 
-    install_thread_start_logger()
     threads = build_threads(config_data)
     for thread in threads:
         thread.start()
-        native_id = getattr(thread, 'native_id', None)
-        logger.info("Started thread %s native_id=%s ident=%s", thread.name, native_id, thread.ident)
-
-    thread_enumeration = []
-    for t in threading.enumerate():
-        native_id = getattr(t, 'native_id', None)
-        thread_enumeration.append(
-            f"{t.name} ident={t.ident} native_id={native_id} alive={t.is_alive()}"
-        )
-    logger.info("All active Python threads: %s", " | ".join(thread_enumeration))
 
     try:
         while True:
