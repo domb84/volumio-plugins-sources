@@ -15,6 +15,7 @@ import re
 logger = logging.getLogger("Menu Manager")
 
 _SCROLL_IDLE_SECONDS = 3.0
+_SCROLL_ACTIONS = frozenset({'menu_up', 'menu_down'})
 
 from rpilcdmenu import RpiLCDMenu
 from rpilcdmenu.items import FunctionItem
@@ -83,9 +84,10 @@ class MenuManager:
                 if 'control' in queueItem:
                     action = queueItem['control']
                     if action in self.control_actions:
-                        self.menuAccessTime = datetime.now()
-                        if self._suppressed_info is not None:
-                            self._defer_info(self._suppressed_info)
+                        if action in _SCROLL_ACTIONS:
+                            self.menuAccessTime = datetime.now()
+                            if self._suppressed_info is not None:
+                                self._defer_info(self._suppressed_info)
                         self.control_actions[action]()
                     else:
                         logger.warning(f"Unknown control action: {action}")
