@@ -70,6 +70,16 @@ class Volumio:
                 except Exception:
                     pass
 
+        with self._pending_info_lock:
+            if self._pending_info_timer is not None:
+                self._pending_info_timer.cancel()
+                self._pending_info_timer = None
+
+        try:
+            self.sio.disconnect()
+        except Exception as e:
+            logger.warning("Failed to disconnect socket.io cleanly: %s", e)
+
         logger.info('Volumio worker stopping')
 
     def _process_queue_item(self, item):
