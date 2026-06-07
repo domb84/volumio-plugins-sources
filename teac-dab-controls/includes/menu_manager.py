@@ -37,6 +37,7 @@ class MenuManager:
 
         # log last message for deduplication
         self.lastMessage = ""
+        self._pending_render_timer: Optional[threading.Timer] = None
 
         # init menu
         self.menu = RpiLCDMenu(lcdRS, lcdE, [lcdD4, lcdD5, lcdD6, lcdD7], scrolling_menu=False)
@@ -159,6 +160,20 @@ class MenuManager:
         self.volumioQ.put({'memory':favourite})
 
 
+    def _schedule_deferred(self, callback, delay: float = 2.0) -> None:
+        """Schedule a deferred LCD action (render or clear) without blocking the queue thread."""
+        if self._pending_render_timer is not None:
+            self._pending_render_timer.cancel()
+        timer = threading.Timer(delay, callback)
+        timer.daemon = True
+        timer.start()
+        self._pending_render_timer = timer
+
+    def _cancel_pending_render(self) -> None:
+        if self._pending_render_timer is not None:
+            self._pending_render_timer.cancel()
+            self._pending_render_timer = None
+
     def display_message(self, message, clear=False, static=False, autoscroll=False):
         # clear will clear the display and not render anything after (ie for shut down)
         # static will leave the message on screen, assuming nothing renders over it immedaitely after
@@ -171,27 +186,28 @@ class MenuManager:
         # check if message is a duplicate, or allow duplicates if last message was longer than 5 seconds ago
         if self.lastMessage != message and lastMessageTime > 2 or lastMessageTime > 5:
             if self.menu is not None:
-                # self.menu.clearDisplay()
                 if clear == True:
                     self.menu.message(message.upper())
-                    sleep(2)
                     self.lastMessageTime = datetime.now()
-                    return self.menu.clearDisplay()
+                    self._schedule_deferred(self.menu.clearDisplay)
+                    return
                 elif static == True:
+                    self._cancel_pending_render()
                     self.lastMessageTime = datetime.now()
                     self.lastMessage = message
                     return self.menu.message(message.upper(), autoscroll=False)
                 elif autoscroll == True:
+                    self._cancel_pending_render()
                     self.lastMessageTime = datetime.now()
                     self.lastMessage = message
                     return self.menu.message(message.upper(), autoscroll=True)
                 else:
                     self.menu.message(message.upper())
                     self.lastMessageTime = datetime.now()
-                    sleep(2)
                     self.lastMessage = message
-                    return self.menu.render()
-                
+                    self._schedule_deferred(self.menu.render)
+                    return
+
             return self
         else:
             logger.debug("Skipping duplicate message")

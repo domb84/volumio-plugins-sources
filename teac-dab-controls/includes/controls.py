@@ -43,29 +43,28 @@ class Controls:
         self.controlQ = controlQ
         self.config = config
         self.stop_event = stop_event
+        self.pi = None
 
         self.rotary_encoder(config.encA, config.encB)
 
         if config.spi:
             logger.debug('SPI mode')
-            self.buttons_spi(config.spi_bus, config.butCS, config.but1, config.but2, config.btn_config, config.btn_skip_config)
+            self.buttons_spi(
+                config.spi_bus, config.butCS, config.but1, config.but2,
+                config.btn_config, config.btn_skip_config,
+                config.button_poll_rate, config.button_debounce_rate, config.button_cooldown_rate,
+            )
         else:
             logger.debug('Software mode')
             self.buttons(
-                config.butClk,
-                config.butDOUT,
-                config.butDIN,
-                config.butCS,
-                config.but1,
-                config.but2,
-                config.btn_config,
-                config.btn_skip_config,
-                config.button_poll_rate,
-                config.button_debounce_rate,
-                config.button_cooldown_rate,
+                config.butClk, config.butDOUT, config.butDIN, config.butCS,
+                config.but1, config.but2, config.btn_config, config.btn_skip_config,
+                config.button_poll_rate, config.button_debounce_rate, config.button_cooldown_rate,
             )
 
-        logger.info('Controls initialised')
+        if self.pi is not None:
+            self.pi.stop()
+        logger.info('Controls stopping')
 
 
     def normalize_value(self, value, min_value, max_value, target_range):
@@ -74,18 +73,40 @@ class Controls:
         scaled_value = normalized_value * target_range
         return int(scaled_value)
 
-    def rotary_encoder(self,encA,encB):
-        # setup rotary encoder variables for pigpio
-        # BE SURE TO START PIGPIO IN PWM MODE 't -0'
-        Enc_A = encA  # Encoder input A: input GPIO 17
-        Enc_B = encB  # Encoder input B: input GPIO 27
+    @staticmethod
+    def _lookup_button(
+        channel: int,
+        data: int,
+        parsed_btns: List,
+        parsed_skips: List,
+    ) -> Tuple[bool, Optional[str]]:
+        """Return (is_skipped, action_name).
 
-        # set globals for encoder
+        is_skipped=True  → value is in a skip range; suppress silently
+        action_name=str  → matched button action to fire
+        action_name=None → no match found; caller should log a warning
+        """
+        for _name, ch, spec in parsed_skips:
+            if ch == channel:
+                if (spec[0] == 'range' and spec[1] <= data <= spec[2]) or \
+                   (spec[0] != 'range' and spec[1] == data):
+                    return True, None
+
+        for name, ch, spec in parsed_btns:
+            if ch == channel:
+                if (spec[0] == 'range' and spec[1] <= data <= spec[2]) or \
+                   (spec[0] != 'range' and spec[1] == data):
+                    return False, name
+
+        return False, None
+
+    def rotary_encoder(self, encA, encB):
+        Enc_A = encA
+        Enc_B = encB
+
         self.last_A = 1
         self.last_B = 1
         self.last_gpio = 0
-
-
 
         def rotary_interrupt(gpio, level, tim):
             if gpio == Enc_A:
@@ -98,21 +119,19 @@ class Controls:
                 if gpio == Enc_A and level == 1:
                     if self.last_B == 1:
                         logger.debug('Menu down')
-                        self.controlQ.put({'control':'menu_down'})
+                        self.controlQ.put({'control': 'menu_down'})
                 elif gpio == Enc_B and level == 1:
                     if self.last_A == 1:
                         logger.debug('Menu up')
-                        self.controlQ.put({'control':'menu_up'})
+                        self.controlQ.put({'control': 'menu_up'})
 
-
-        # setup rotary encoder in pigpio
-        pi = pigpio.pi()  # init pigpio deamon
-        pi.set_mode(Enc_A, pigpio.INPUT)
-        pi.set_pull_up_down(Enc_A, pigpio.PUD_UP)
-        pi.set_mode(Enc_B, pigpio.INPUT)
-        pi.set_pull_up_down(Enc_B, pigpio.PUD_UP)
-        pi.callback(Enc_A, pigpio.EITHER_EDGE, rotary_interrupt)
-        pi.callback(Enc_B, pigpio.EITHER_EDGE, rotary_interrupt)
+        self.pi = pigpio.pi()
+        self.pi.set_mode(Enc_A, pigpio.INPUT)
+        self.pi.set_pull_up_down(Enc_A, pigpio.PUD_UP)
+        self.pi.set_mode(Enc_B, pigpio.INPUT)
+        self.pi.set_pull_up_down(Enc_B, pigpio.PUD_UP)
+        self.pi.callback(Enc_A, pigpio.EITHER_EDGE, rotary_interrupt)
+        self.pi.callback(Enc_B, pigpio.EITHER_EDGE, rotary_interrupt)
 
         logger.info('Rotary thread start successfully, listening for turns')
 
@@ -125,31 +144,19 @@ class Controls:
         channels = [but1, but2]
 
         button_poll_rate /= 1000
-        button_debounce_rate /= 1000  
+        button_debounce_rate /= 1000
         button_cooldown_rate /= 1000
 
-        # Ensure a sensible minimum poll interval to avoid tight busy-loops
-        # (a value of 0 can happen if the config is set to 0)
-        # Use a lower minimum to increase polling frequency for bit-banged SPI
         MIN_POLL = 0.05
-        if button_poll_rate <= 0:
-            button_poll_rate = MIN_POLL
-        else:
-            button_poll_rate = max(button_poll_rate, MIN_POLL)
+        button_poll_rate = max(button_poll_rate, MIN_POLL) if button_poll_rate > 0 else MIN_POLL
 
         logger.info("Bitbanged controls polling every %.3fs", button_poll_rate)
 
-        # Use monotonic time for debounce/cooldown
         button_states = {
-            channel: {
-                "last_value": None,
-                "stable_since": None,
-                "last_sent": 0.0  # Track last time the button was activated (monotonic)
-            }
+            channel: {"last_value": None, "stable_since": None, "last_sent": 0.0}
             for channel in channels
         }
 
-        # Preprocess button configs to avoid per-loop parsing
         parsed_btns = parse_button_config(btn_config)
         parsed_skips = parse_button_config(btn_skip_config)
 
@@ -159,33 +166,25 @@ class Controls:
         GPIO.setup(DIN, GPIO.OUT)
         GPIO.setup(CS, GPIO.OUT)
 
-        # Precompute command words for bitbanged reads to avoid recomputation
         command_map = {ch: (ch | 0x18) << 3 for ch in channels}
 
         def read_mcp3008(channel):
-            # Manual CS pulse around the full transaction
             GPIO.output(CS, GPIO.LOW)
             command = command_map[channel]
-
-            # Send 5 clock bits for command
             for _ in range(5):
                 GPIO.output(DIN, GPIO.HIGH if (command & 0x80) else GPIO.LOW)
                 command <<= 1
                 GPIO.output(CLK, GPIO.HIGH)
                 GPIO.output(CLK, GPIO.LOW)
-
-            # Read 10 bits of response
             value = 0
             for _ in range(10):
                 GPIO.output(CLK, GPIO.HIGH)
                 GPIO.output(CLK, GPIO.LOW)
                 value = (value << 1) | (1 if GPIO.input(DOUT) else 0)
-
             GPIO.output(CS, GPIO.HIGH)
             return value
 
         while not (self.stop_event and self.stop_event.is_set()):
-            # Read channels one-by-one so we can exit quickly if stop_event is set
             batch_data = []
             for channel in channels:
                 if self.stop_event and self.stop_event.is_set():
@@ -195,90 +194,55 @@ class Controls:
             for data, channel in zip(batch_data, channels):
                 data = self.normalize_value(data, 0, 1024, 32)
                 state = button_states[channel]
-
                 now = time.monotonic()
+
                 if data != state["last_value"]:
                     state["stable_since"] = now
                     state["last_value"] = data
                 elif now - (state["stable_since"] or 0) >= button_debounce_rate:
-                    current_time = now
-                    
-                    # Skip if within cooldown period
-                    if current_time - state["last_sent"] < button_cooldown_rate:
+                    if now - state["last_sent"] < button_cooldown_rate:
                         continue
-
                     logger.debug(f"Channel {channel} stable value: {data}")
-
-                    # Check skip ranges first
-                    skipped = False
-                    for name, ch, spec in parsed_skips:
-                        if ch != channel:
-                            continue
-                        if spec[0] == 'range':
-                            _, low, high = spec
-                            if low <= data <= high:
-                                skipped = True
-                                break
-                        else:
-                            _, val = spec
-                            if val == data:
-                                skipped = True
-                                break
-
+                    skipped, action = self._lookup_button(channel, data, parsed_btns, parsed_skips)
                     if skipped:
                         continue
-
-                    # Now check configured buttons
-                    matched = False
-                    for name, ch, spec in parsed_btns:
-                        if ch != channel:
-                            continue
-                        if spec[0] == 'range':
-                            _, low, high = spec
-                            if low <= data <= high:
-                                self.controlQ.put({'control': name})
-                                state["last_sent"] = current_time
-                                matched = True
-                                break
-                        else:
-                            _, val = spec
-                            if val == data:
-                                self.controlQ.put({'control': name})
-                                state["last_sent"] = current_time
-                                matched = True
-                                break
-
-                    if not matched:
+                    if action:
+                        self.controlQ.put({'control': action})
+                        state["last_sent"] = now
+                    else:
                         logger.warning(f"Uncaught press on Channel {channel}: {data}")
 
             time.sleep(button_poll_rate)
 
-        # cleanup
         logger.info('Buttons (bitbang) stopping')
 
-    ## TODO: Add debounce and poll rate support
-    def buttons_spi(self,spi_bus,butCS,but1,but2,btn_config,btn_skip_config):
-        # Define MCP3008 pins
+    def buttons_spi(self, spi_bus, butCS, but1, but2, btn_config, btn_skip_config, button_poll_rate=10, button_debounce_rate=50, button_cooldown_rate=500):
         spi = spidev.SpiDev()
-        spi.open(0, spi_bus)  # Open SPI bus X, device 0
-        spi.max_speed_hz = 1000000  # Set SPI speed (1 MHz)
+        spi.open(0, spi_bus)
+        spi.max_speed_hz = 1000000
 
-        # Set up GPIO for chip select (CS)
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(butCS, GPIO.OUT)
 
-        # channels to read from MCP 3008
         channels = [but1, but2]
 
-        # Preprocess configs for faster comparisons
+        button_poll_rate = max(button_poll_rate / 1000, 0.05)
+        button_debounce_rate /= 1000
+        button_cooldown_rate /= 1000
+
+        logger.info("SPI controls polling every %.3fs", button_poll_rate)
+
+        button_states = {
+            channel: {"last_value": None, "stable_since": None, "last_sent": 0.0}
+            for channel in channels
+        }
+
         parsed_btns = parse_button_config(btn_config)
         parsed_skips = parse_button_config(btn_skip_config)
 
-        # Precompute command byte arrays for each channel to avoid allocations
         cmd_bytes = {ch: [1, (8 + ch) << 4, 0] for ch in channels}
 
         def _read_all_channels_spi(ch_list):
-            # Manually assert CS low for batch reads to reduce GPIO toggles
             GPIO.output(butCS, GPIO.LOW)
             results = []
             for ch in ch_list:
@@ -288,62 +252,32 @@ class Controls:
             GPIO.output(butCS, GPIO.HIGH)
             return results
 
-        # Adjust sleep time to reduce loop frequency
         while not (self.stop_event and self.stop_event.is_set()):
-            # Read data from channels in the list with one CS toggle
-            # Check stop_event between channel transfers to reduce shutdown latency
             batch_data = _read_all_channels_spi(channels)
 
-            # Process batch data
             for data, channel in zip(batch_data, channels):
                 data = self.normalize_value(data, 0, 1024, 32)
-                logger.debug(f'Normalized on Channel: {channel}: {data}')
+                state = button_states[channel]
+                now = time.monotonic()
 
-                # Check skip specs
-                skipped = False
-                for name, ch, spec in parsed_skips:
-                    if ch != channel:
+                if data != state["last_value"]:
+                    state["stable_since"] = now
+                    state["last_value"] = data
+                elif now - (state["stable_since"] or 0) >= button_debounce_rate:
+                    if now - state["last_sent"] < button_cooldown_rate:
                         continue
-                    if spec[0] == 'range':
-                        _, low, high = spec
-                        if low <= data <= high:
-                            skipped = True
-                            break
-                    else:
-                        _, val = spec
-                        if val == data:
-                            skipped = True
-                            break
-
-                if skipped:
-                    continue
-
-                matched = False
-                for name, ch, spec in parsed_btns:
-                    if ch != channel:
+                    logger.debug(f"Channel {channel} stable value: {data}")
+                    skipped, action = self._lookup_button(channel, data, parsed_btns, parsed_skips)
+                    if skipped:
                         continue
-                    if spec[0] == 'range':
-                        _, low, high = spec
-                        if low <= data <= high:
-                            logger.debug(f'Pressed button:{name} on channel:{channel} with value:{data}')
-                            self.controlQ.put({'control': name})
-                            matched = True
-                            break
+                    if action:
+                        self.controlQ.put({'control': action})
+                        state["last_sent"] = now
                     else:
-                        _, val = spec
-                        if val == data:
-                            logger.debug(f'Pressed button:{name} on channel:{channel} with value:{data}')
-                            self.controlQ.put({'control': name})
-                            matched = True
-                            break
+                        logger.warning(f"Uncaught press on Channel {channel}: {data}")
 
-                if not matched:
-                    logger.warning('Uncaught press on Channel: {channel}: {data}'.format(channel=channel, data=data))
+            time.sleep(button_poll_rate)
 
-            # Adjust sleep time to reduce loop frequency
-            time.sleep(0.05)
-
-        # Close SPI connection when done
         spi.close()
         logger.info('Buttons (SPI) stopping')
 

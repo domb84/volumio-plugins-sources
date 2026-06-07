@@ -4,7 +4,6 @@ import os
 import queue
 import signal
 import threading
-import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -170,8 +169,7 @@ def main() -> None:
         thread.start()
 
     try:
-        while True:
-            time.sleep(1)
+        stop_event.wait()
     except KeyboardInterrupt:
         logger.info("KeyboardInterrupt received, shutting down")
         stop_event.set()

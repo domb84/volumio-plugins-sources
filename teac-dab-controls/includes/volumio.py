@@ -8,6 +8,8 @@ import threading
 from typing import Optional
 logger = logging.getLogger("Volumio Functions")
 
+_INFO_DEBOUNCE_SECONDS = 0.4
+
 # set socketio logging
 logging.getLogger('socketio').setLevel(logging.WARNING)
 
@@ -29,6 +31,8 @@ class Volumio:
         self._waiting = .1
         self.stop_event = stop_event
         self.last_core_state = None  # Track core state for deduplication
+        self._pending_info_timer = None
+        self._pending_info_lock = threading.Lock()
 
         self.ws_api = "http://localhost:3000"
         self.sio = socketio.Client(logger=False, engineio_logger=False,reconnection=True)
@@ -229,6 +233,7 @@ class Volumio:
             # check if we're not actually playing anything.
             # This happens between every track change so don't show anything in this instance else we spam the display with 'stop' events.
             elif status != 'play' and all_none:
+                self.last_core_state = None  # allow same track to redisplay when playback resumes
                 message = [{'message':'No media is playing'}]
                 message = json.dumps(message)
                 self.menuManagerQ.put({'message':message})
@@ -238,25 +243,47 @@ class Volumio:
                 core_state = (status, title, artist, album, uri, service)
                 
                 # Check if core content has changed
+                result = json.dumps(clean_state_list)
                 if self.last_core_state != core_state:
-                    # Core content changed - always send
-                    result = json.dumps(clean_state_list)
                     self.last_core_state = core_state
                     logger.debug("State changed: %s", core_state)
-                    self.menuManagerQ.put({'info':result})
+                    self._schedule_info_update(result)
                 elif any([bitrate, samplerate, bitdepth, channels]):
-                    # Audio info is now available - send the update with full info
-                    result = json.dumps(clean_state_list)
+                    # Audio info arrived after the initial update — replace the pending
+                    # display or send immediately if the window already closed
                     logger.debug("Audio info now available: bitrate=%s, samplerate=%s", bitrate, samplerate)
-                    self.menuManagerQ.put({'info':result})
+                    self._schedule_info_update(result)
                 else:
-                    # Same core content, no new audio info - skip duplicate
                     logger.debug("Duplicate state skipped: %s", core_state)
 
 
         except Exception as e:
             logger.error("Failed to processes incoming state: " + str(e))
             
+
+    def _schedule_info_update(self, result: str) -> None:
+        """Debounce rapid successive pushState calls for the same track.
+
+        Volumio often sends an initial state without audio details followed
+        immediately by the same state with bitrate/samplerate filled in.
+        Holding the update briefly and replacing it if a richer one arrives
+        means only the final, complete message reaches the display.
+        """
+        with self._pending_info_lock:
+            if self._pending_info_timer is not None:
+                self._pending_info_timer.cancel()
+            self._pending_info_timer = threading.Timer(
+                _INFO_DEBOUNCE_SECONDS,
+                self._flush_info_update,
+                args=(result,),
+            )
+            self._pending_info_timer.daemon = True
+            self._pending_info_timer.start()
+
+    def _flush_info_update(self, result: str) -> None:
+        with self._pending_info_lock:
+            self._pending_info_timer = None
+        self.menuManagerQ.put({'info': result})
 
     def _on_push_browse_library(self, *args):
         logger.debug("Received: %s", args)
