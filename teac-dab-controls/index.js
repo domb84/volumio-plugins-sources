@@ -57,7 +57,11 @@ teacdabcontrols.prototype.onRestart = function() {
     try { fs.writeFileSync(RESTART_MARKER_PATH, String(Date.now())); }
     catch (e) { self.logger.error('Teac DAB Controls - could not write restart marker: ' + e); }
 
-    return self.pigpiodServiceCmds('restart')
+    // Only restart our own service. Use 'start' (not 'restart') for pigpiod so a
+    // running daemon is left untouched — restarting it here races the controls'
+    // pigpio reconnect and leaves the rotary encoder dead until the next restart.
+    // Config changes never require pigpiod to restart.
+    return self.pigpiodServiceCmds('start')
         .then(function () { return self.teacdabcontrolsServiceCmds('restart'); })
         .fail(function (e) { self.logger.error('Teac DAB Controls - error restarting: ' + e); });
 };
