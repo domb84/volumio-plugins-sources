@@ -5,6 +5,10 @@ var fs = require('fs-extra');
 var config = new (require('v-conf'))();
 var exec = require('child_process').exec;
 
+// Dropped just before a self-triggered restart so the python service can tell a
+// restart (capture/settings save) apart from a genuine stop/shutdown.
+var RESTART_MARKER_PATH = '/tmp/teac-dab-controls-restarting';
+
 
 module.exports = teacdabcontrols;
 function teacdabcontrols(context) {
@@ -47,6 +51,11 @@ teacdabcontrols.prototype.onStop = function() {
 
 teacdabcontrols.prototype.onRestart = function() {
     var self = this;
+
+    // Mark this as our own restart so the controls don't show the shutdown
+    // screen (only genuine stops/shutdowns should).
+    try { fs.writeFileSync(RESTART_MARKER_PATH, String(Date.now())); }
+    catch (e) { self.logger.error('Teac DAB Controls - could not write restart marker: ' + e); }
 
     return self.pigpiodServiceCmds('restart')
         .then(function () { return self.teacdabcontrolsServiceCmds('restart'); })

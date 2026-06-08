@@ -3,8 +3,8 @@ import logging
 import os
 import platform
 import queue
-import subprocess
 import threading
+import time
 from collections import deque
 from datetime import datetime
 from time import sleep
@@ -16,6 +16,10 @@ import re
 logger = logging.getLogger("Menu Manager")
 
 _SCROLL_IDLE_SECONDS = 3.0
+
+# Written by index.js just before a self-triggered restart so we can tell a
+# restart (capture/settings save) apart from a genuine stop/shutdown.
+_RESTART_MARKER_PATH = "/tmp/teac-dab-controls-restarting"
 
 from rpilcdmenu import RpiLCDMenu
 from rpilcdmenu.items import FunctionItem
@@ -199,28 +203,29 @@ class MenuManager:
             self.show_track_info(info)
 
     @staticmethod
-    def _system_is_shutting_down() -> bool:
-        """True only when the whole device is powering off or rebooting.
+    def _consume_restart_marker() -> bool:
+        """True if this stop is one of our own restarts (capture/settings save).
 
-        Distinguishes a real shutdown from an ordinary service restart (e.g.
-        after saving button config) so the shutdown screen doesn't flash on
-        every restart.
+        index.js drops a marker file just before it restarts the service, so a
+        genuine stop/shutdown is the default. The freshness window guards against
+        a stale marker left by a restart that never actually stopped us.
         """
         try:
-            result = subprocess.run(
-                ["systemctl", "is-system-running"],
-                capture_output=True, text=True, timeout=2,
-            )
-            return (result.stdout or "").strip() == "stopping"
+            if not os.path.exists(_RESTART_MARKER_PATH):
+                return False
+            age = time.time() - os.path.getmtime(_RESTART_MARKER_PATH)
+            os.remove(_RESTART_MARKER_PATH)
+            return age < 30
         except Exception:
             return False
 
     def _show_shutdown_message(self) -> None:
-        """On a real shutdown, show a message then blank the LCD.
+        """Show a message then blank the LCD when the service is stopping.
 
-        Done synchronously (no timers, which get killed as the process exits).
+        Skipped for our own restarts. Done synchronously (no timers, which get
+        killed as the process exits).
         """
-        if self.menu is None or not self._system_is_shutting_down():
+        if self.menu is None or self._consume_restart_marker():
             return
         try:
             # Stop any pending timers from drawing over the shutdown screen.
