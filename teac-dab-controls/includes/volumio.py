@@ -1,8 +1,6 @@
 # https://volumio.github.io/docs/API/API_Overview.html
 
-import ctypes
 import logging
-import platform
 import queue
 import threading
 from typing import Optional
@@ -365,9 +363,6 @@ class Volumio:
     def get_browse_sources(self) -> None:
         self._send('getBrowseSources')
 
-    # Backwards compatibility alias
-    getBrowseSources = get_browse_sources
-
     def get_sources(self, link: str) -> None:
         logger.debug("Get sources from %s", link)
         self._send('browseLibrary', {'uri': link})
@@ -405,6 +400,3 @@ class Volumio:
     def stop(self) -> None:
         self._send('stop')
         self._send('clearQueue')
-
-# Backwards compatibility alias
-volumio = Volumio

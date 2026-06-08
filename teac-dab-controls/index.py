@@ -1,11 +1,10 @@
 import json
 import logging
-import os
 import queue
 import signal
 import threading
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from includes import api, controls, menu_manager, volumio
 

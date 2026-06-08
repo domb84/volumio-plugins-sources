@@ -2,7 +2,6 @@
 
 var libQ = require('kew');
 var fs = require('fs-extra');
-var config = new (require('v-conf'))();
 var exec = require('child_process').exec;
 
 // Dropped just before a self-triggered restart so the python service can tell a

@@ -1,7 +1,5 @@
-import ctypes
 import logging
 import os
-import platform
 import queue
 import threading
 import time
@@ -32,9 +30,6 @@ class MenuManager:
         self.volumioQ = volumioQ
         self.menuManagerQ = menuManagerQ
         self.stop_event = stop_event
-
-        # put the queues in a list
-        queues = [self.controlQ, self.menuManagerQ]
 
         # menu access times
         self.menuAccessTime = datetime.now()
@@ -446,24 +441,7 @@ class MenuManager:
         self.volumioQ.put({'button': button_link})
 
 
-    # exit sub menu
-    def exit_sub_menu(self, submenu):
-        return submenu.exit()
-
-    # Backwards compatibility aliases
-    resolveItem = resolve_item
-    exitSubMenu = exit_sub_menu
-
     def dimmer(self):
         self.menu.lcd.displayToggle()
-
-
-    def render_bars(self, percent: int) -> str:
-        bar = int(percent / 100 * 16)
-        bars = '\240' * bar
-        return bars
-
-# Backwards compatibility alias
-menu_manager = MenuManager
 
 

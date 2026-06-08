@@ -1,16 +1,14 @@
-import ctypes
 import RPi.GPIO as GPIO
 import pigpio
 import spidev
 import json
 import os
-import platform
 import threading
 import time
 import logging
 from dataclasses import dataclass, field
 from queue import Queue
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger("Controls")
 from .utils import parse_button_config
@@ -346,6 +344,3 @@ class Controls:
 
         spi.close()
         logger.info('Buttons (SPI) stopping')
-
-# Preserve backwards compatibility for older import styles
-controls = Controls
