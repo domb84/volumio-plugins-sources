@@ -24,6 +24,8 @@ class Volumio:
     STREAM_URI_REGEX = re.compile(r'^(https?|spotify:track):(\/\/)?.+')
     BROWSE_URI_REGEX = re.compile(r'^(?:radio(?:\/.*)?|spotify(?::(?!track:).+|\/.*)?)$')
     SAFE_MENU_ITEM_REGEX = re.compile(r'^[A-Za-z0-9_-]+$')
+    WEBRADIO_URI_REGEX = re.compile(r'^https?:\/\/.+\/.+')
+    SPOTIFY_TRACK_REGEX = re.compile(r'^spotify:track:.+')
 
     def __init__(self, volumioQ: 'queue.Queue', menuManagerQ: 'queue.Queue', stop_event=None):
         self.volumioQ = volumioQ
@@ -220,8 +222,7 @@ class Volumio:
             volatile = state.get('volatile', None)            
             service = state.get('service', None)
 
-            state_list = list()
-            state_list.append({
+            clean_state = {
                 'status': status,
                 'artist': artist,
                 'title': title,
@@ -232,19 +233,13 @@ class Volumio:
                 'samplerate': samplerate,
                 'bitdepth': bitdepth,
                 'channels': channels
-            })
+            }
 
-            # replace any occurences of null or "" with None so we can just check for None
-            clean_state_list = [{k: None if v == "" else v for k, v in d.items()} for d in state_list]
-            
-            # check for missing items
-            key_to_check = ['artist', 'title']
-            all_none = True
+            # normalise empty strings to None so downstream only has to check for None
+            clean_state = {k: (None if v == "" else v) for k, v in clean_state.items()}
 
-            for dictionary in clean_state_list:
-                if not all(dictionary[key] is None for key in key_to_check):
-                    all_none = False
-                    break
+            # nothing is playing if neither artist nor title is set
+            all_none = clean_state['artist'] is None and clean_state['title'] is None
 
             # if theres too many missing items log it and skip the rest
             if status == 'play' and all_none:
@@ -253,16 +248,15 @@ class Volumio:
             # This happens between every track change so don't show anything in this instance else we spam the display with 'stop' events.
             elif status != 'play' and all_none:
                 self.last_core_state = None  # allow same track to redisplay when playback resumes
-                message = [{'message':'No media is playing'}]
-                message = json.dumps(message)
-                self.menuManagerQ.put({'message':message})
+                message = json.dumps([{'message': 'No media is playing'}])
+                self.menuManagerQ.put({'message': message})
 
             else:
                 # Deduplication: extract core content fields for comparison
                 core_state = (status, title, artist, album, uri, service)
-                
-                # Check if core content has changed
-                result = json.dumps(clean_state_list)
+
+                # Check if core content has changed (wire format is a list of one)
+                result = json.dumps([clean_state])
                 if force:
                     # Explicit info request — always show, even if unchanged.
                     self.last_core_state = core_state
@@ -400,9 +394,9 @@ class Volumio:
     
     def play(self, uri: str) -> None:
         # self._send('clearQueue')
-        if re.match('(https|http):\/\/.+\/.+', uri):
+        if self.WEBRADIO_URI_REGEX.match(uri):
             self._send('addPlay', {'status':'play', 'service':'webradio', 'uri':uri})
-        elif re.match('spotify:track:.+', uri):
+        elif self.SPOTIFY_TRACK_REGEX.match(uri):
             self._send('addPlay', {'status':'play', 'service':'spotify', 'uri':uri})
         else:
             logger.debug("URi does not match webradio or spotify: " + str(uri))

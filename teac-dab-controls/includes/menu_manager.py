@@ -220,7 +220,7 @@ class MenuManager:
         lastMessageTime = (self.messageTime - self.lastMessageTime).total_seconds()
 
         # check if message is a duplicate, or allow duplicates if last message was longer than 5 seconds ago
-        if self.lastMessage != message and lastMessageTime > 2 or lastMessageTime > 5:
+        if (self.lastMessage != message and lastMessageTime > 2) or lastMessageTime > 5:
             if self.menu is not None:
                 if clear == True:
                     self.menu.message(message.upper())

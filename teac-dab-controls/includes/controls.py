@@ -100,6 +100,30 @@ class Controls:
 
         return False, None
 
+    def _process_readings(self, batch_data, channels, button_states, parsed_btns, parsed_skips,
+                          button_debounce_rate, button_cooldown_rate):
+        """Apply debounce/cooldown to a batch of ADC readings and emit button actions."""
+        for data, channel in zip(batch_data, channels):
+            data = self.normalize_value(data, 0, 1024, 32)
+            state = button_states[channel]
+            now = time.monotonic()
+
+            if data != state["last_value"]:
+                state["stable_since"] = now
+                state["last_value"] = data
+            elif now - (state["stable_since"] or 0) >= button_debounce_rate:
+                if now - state["last_sent"] < button_cooldown_rate:
+                    continue
+                logger.debug(f"Channel {channel} stable value: {data}")
+                skipped, action = self._lookup_button(channel, data, parsed_btns, parsed_skips)
+                if skipped:
+                    continue
+                if action:
+                    self.controlQ.put({'control': action})
+                    state["last_sent"] = now
+                else:
+                    logger.warning(f"Uncaught press on Channel {channel}: {data}")
+
     def rotary_encoder(self, encA, encB):
         Enc_A = encA
         Enc_B = encB
@@ -191,26 +215,8 @@ class Controls:
                     break
                 batch_data.append(read_mcp3008(channel))
 
-            for data, channel in zip(batch_data, channels):
-                data = self.normalize_value(data, 0, 1024, 32)
-                state = button_states[channel]
-                now = time.monotonic()
-
-                if data != state["last_value"]:
-                    state["stable_since"] = now
-                    state["last_value"] = data
-                elif now - (state["stable_since"] or 0) >= button_debounce_rate:
-                    if now - state["last_sent"] < button_cooldown_rate:
-                        continue
-                    logger.debug(f"Channel {channel} stable value: {data}")
-                    skipped, action = self._lookup_button(channel, data, parsed_btns, parsed_skips)
-                    if skipped:
-                        continue
-                    if action:
-                        self.controlQ.put({'control': action})
-                        state["last_sent"] = now
-                    else:
-                        logger.warning(f"Uncaught press on Channel {channel}: {data}")
+            self._process_readings(batch_data, channels, button_states, parsed_btns, parsed_skips,
+                                   button_debounce_rate, button_cooldown_rate)
 
             time.sleep(button_poll_rate)
 
@@ -255,26 +261,8 @@ class Controls:
         while not (self.stop_event and self.stop_event.is_set()):
             batch_data = _read_all_channels_spi(channels)
 
-            for data, channel in zip(batch_data, channels):
-                data = self.normalize_value(data, 0, 1024, 32)
-                state = button_states[channel]
-                now = time.monotonic()
-
-                if data != state["last_value"]:
-                    state["stable_since"] = now
-                    state["last_value"] = data
-                elif now - (state["stable_since"] or 0) >= button_debounce_rate:
-                    if now - state["last_sent"] < button_cooldown_rate:
-                        continue
-                    logger.debug(f"Channel {channel} stable value: {data}")
-                    skipped, action = self._lookup_button(channel, data, parsed_btns, parsed_skips)
-                    if skipped:
-                        continue
-                    if action:
-                        self.controlQ.put({'control': action})
-                        state["last_sent"] = now
-                    else:
-                        logger.warning(f"Uncaught press on Channel {channel}: {data}")
+            self._process_readings(batch_data, channels, button_states, parsed_btns, parsed_skips,
+                                   button_debounce_rate, button_cooldown_rate)
 
             time.sleep(button_poll_rate)
 
