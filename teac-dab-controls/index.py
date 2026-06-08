@@ -166,6 +166,10 @@ def main() -> None:
 
     threads = build_threads(config_data)
     for thread in threads:
+        # Daemonise so a stuck worker can never keep the process alive past
+        # shutdown — systemd's restart then completes quickly instead of
+        # waiting out the stop timeout (which blocks the Volumio plugin).
+        thread.daemon = True
         thread.start()
 
     try:

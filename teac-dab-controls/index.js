@@ -4,7 +4,6 @@ var libQ = require('kew');
 var fs = require('fs-extra');
 var config = new (require('v-conf'))();
 var exec = require('child_process').exec;
-var execSync = require('child_process').execSync;
 
 
 module.exports = teacdabcontrols;
@@ -31,56 +30,27 @@ teacdabcontrols.prototype.onVolumioStart = function()
 
 teacdabcontrols.prototype.onStart = function() {
     var self = this;
-	var defer=libQ.defer();
 
-	try {
-        this.pigpiodServiceCmds('start');
-		this.teacdabcontrolsServiceCmds('start');
-    } catch (e) {
-        const err = 'Error starting Teac DAB controls';
-        self.logger.error(err, e);
-    }
-
-	// Once the Plugin has successfull started resolve the promise
-	defer.resolve();
-
-    return defer.promise;
+    // Start pigpiod first (the python controls connect to it), then our service.
+    return self.pigpiodServiceCmds('start')
+        .then(function () { return self.teacdabcontrolsServiceCmds('start'); })
+        .fail(function (e) { self.logger.error('Teac DAB Controls - error starting: ' + e); });
 };
 
 teacdabcontrols.prototype.onStop = function() {
     var self = this;
-    var defer=libQ.defer();
 
-	try {
-		this.teacdabcontrolsServiceCmds('stop');
-        this.pigpiodServiceCmds('stop');
-    } catch (e) {
-        const err = 'Error stopping Teac DAB controls';
-        self.logger.error(err, e);
-    }
-
-    // Once the Plugin has successfull stopped resolve the promise
-    defer.resolve();
-
-    return libQ.resolve();
+    return self.teacdabcontrolsServiceCmds('stop')
+        .then(function () { return self.pigpiodServiceCmds('stop'); })
+        .fail(function (e) { self.logger.error('Teac DAB Controls - error stopping: ' + e); });
 };
 
 teacdabcontrols.prototype.onRestart = function() {
     var self = this;
-    var defer=libQ.defer();
 
-	try {
-        this.pigpiodServiceCmds('restart');
-		this.teacdabcontrolsServiceCmds('restart');
-    } catch (e) {
-        const err = 'Error restarting Teac DAB controls';
-        self.logger.error(err, e);
-    }
-
-    // Once the Plugin has successfull stopped resolve the promise
-    defer.resolve();
-
-    return libQ.resolve();
+    return self.pigpiodServiceCmds('restart')
+        .then(function () { return self.teacdabcontrolsServiceCmds('restart'); })
+        .fail(function (e) { self.logger.error('Teac DAB Controls - error restarting: ' + e); });
 };
 
 
@@ -348,28 +318,36 @@ teacdabcontrols.prototype.saveCapture = function () {
 
 // Plugin methods -----------------------------------------------------------------------------
 
-teacdabcontrols.prototype.teacdabcontrolsServiceCmds = function (cmd) {
+// Run a systemctl command asynchronously so Volumio's event loop is never
+// blocked while systemd works (a restart can wait on the old process to stop).
+teacdabcontrols.prototype.systemctl = function (cmd, unit) {
     var self = this;
 
     if (!['start', 'stop', 'restart'].includes(cmd)) {
-        throw TypeError('Unknown systemd command: ', cmd);
+        return libQ.reject(new TypeError('Unknown systemd command: ' + cmd));
     }
-    const { stdout, stderr } = execSync(`/usr/bin/sudo /bin/systemctl ${cmd} teac-dab-controls.service -q`, { uid: 1000, gid: 1000 });
-    if (stderr) {
-        self.logger.error(`Unable to ${cmd} Daemon: `, stderr);
-    } else if (stdout) { }
-    self.logger.info(`Teac DAB controls Daemon service ${cmd}ed!`);
+
+    const defer = libQ.defer();
+    exec(`/usr/bin/sudo /bin/systemctl ${cmd} ${unit} -q`, { uid: 1000, gid: 1000 }, function (error, stdout, stderr) {
+        if (error) {
+            self.logger.error(`Teac DAB Controls - unable to ${cmd} ${unit}: ${error}`);
+            defer.reject(error);
+            return;
+        }
+        if (stderr) {
+            self.logger.error(`Teac DAB Controls - ${cmd} ${unit} stderr: ${stderr}`);
+        }
+        self.logger.info(`Teac DAB Controls - ${unit} ${cmd} complete`);
+        defer.resolve();
+    });
+
+    return defer.promise;
+};
+
+teacdabcontrols.prototype.teacdabcontrolsServiceCmds = function (cmd) {
+    return this.systemctl(cmd, 'teac-dab-controls.service');
 };
 
 teacdabcontrols.prototype.pigpiodServiceCmds = function (cmd) {
-    var self = this;
-
-    if (!['start', 'stop', 'restart'].includes(cmd)) {
-        throw TypeError('Unknown systemd command: ', cmd);
-    }
-    const { stdout, stderr } = execSync(`/usr/bin/sudo /bin/systemctl ${cmd} pigpiod.service -q`, { uid: 1000, gid: 1000 });
-    if (stderr) {
-        self.logger.error(`Unable to ${cmd} Daemon: `, stderr);
-    } else if (stdout) { }
-    self.logger.info(`pigpio Daemon service ${cmd}ed!`);
+    return this.systemctl(cmd, 'pigpiod.service');
 };
