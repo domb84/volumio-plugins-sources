@@ -33,6 +33,7 @@ class Volumio:
         self.last_core_state = None  # Track core state for deduplication
         self._pending_info_timer = None
         self._pending_info_lock = threading.Lock()
+        self._force_next_state = False  # next pushState was explicitly requested (info button)
 
         self.ws_api = "http://localhost:3000"
         self.sio = socketio.Client(logger=False, engineio_logger=False,reconnection=True)
@@ -94,6 +95,9 @@ class Volumio:
 
     def _process_show_item(self, item):
         if item.get('show') == 'info':
+            # User pressed the info button — force the next state through the
+            # dedup/debounce so it is displayed immediately.
+            self._force_next_state = True
             self.get_state()
             logger.debug("%s", item)
 
@@ -182,6 +186,11 @@ class Volumio:
 
     def _on_push_state(self, *args):
         try:
+            # Consume any pending force request (set by the info button). When
+            # forced we bypass dedup/debounce so the update shows immediately.
+            force = self._force_next_state
+            self._force_next_state = False
+
             # logger.debug("State: " + str(args))
             state = args[0]
 
@@ -254,7 +263,12 @@ class Volumio:
                 
                 # Check if core content has changed
                 result = json.dumps(clean_state_list)
-                if self.last_core_state != core_state:
+                if force:
+                    # Explicit info request — always show, even if unchanged.
+                    self.last_core_state = core_state
+                    logger.debug("Forced state update (info button): %s", core_state)
+                    self._schedule_info_update(result, immediate=True)
+                elif self.last_core_state != core_state:
                     self.last_core_state = core_state
                     logger.debug("State changed: %s", core_state)
                     self._schedule_info_update(result)
@@ -271,17 +285,25 @@ class Volumio:
             logger.error("Failed to processes incoming state: " + str(e))
             
 
-    def _schedule_info_update(self, result: str) -> None:
+    def _schedule_info_update(self, result: str, immediate: bool = False) -> None:
         """Debounce rapid successive pushState calls for the same track.
 
         Volumio often sends an initial state without audio details followed
         immediately by the same state with bitrate/samplerate filled in.
         Holding the update briefly and replacing it if a richer one arrives
         means only the final, complete message reaches the display.
+
+        When ``immediate`` is set (an explicit info-button request) the update
+        is sent straight away with a ``force`` flag so the menu manager shows
+        it without its scroll-idle deferral.
         """
         with self._pending_info_lock:
             if self._pending_info_timer is not None:
                 self._pending_info_timer.cancel()
+                self._pending_info_timer = None
+            if immediate:
+                self.menuManagerQ.put({'info': result, 'force': True})
+                return
             self._pending_info_timer = threading.Timer(
                 _INFO_DEBOUNCE_SECONDS,
                 self._flush_info_update,

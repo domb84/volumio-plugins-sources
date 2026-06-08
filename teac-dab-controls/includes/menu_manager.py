@@ -93,12 +93,22 @@ class MenuManager:
                     if queueItem['menu']:
                         self.build_menu(queueItem['menu'],queueItem.get('remember', True))
                 elif 'info' in queueItem:
-                    idle = (datetime.now() - self.menuAccessTime).total_seconds()
-                    if idle < _SCROLL_IDLE_SECONDS:
-                        logger.debug("Deferring track info during menu activity")
-                        self._defer_info(queueItem['info'])
-                    else:
+                    # An explicitly requested info update (info button) must show
+                    # immediately; only automatic pushState updates are deferred
+                    # while the user is scrolling the menu.
+                    if queueItem.get('force'):
+                        if self._info_release_timer is not None:
+                            self._info_release_timer.cancel()
+                            self._info_release_timer = None
+                        self._suppressed_info = None
                         self.show_track_info(queueItem['info'])
+                    else:
+                        idle = (datetime.now() - self.menuAccessTime).total_seconds()
+                        if idle < _SCROLL_IDLE_SECONDS:
+                            logger.debug("Deferring track info during menu activity")
+                            self._defer_info(queueItem['info'])
+                        else:
+                            self.show_track_info(queueItem['info'])
                 elif 'message' in queueItem:
                     self.show_message(queueItem['message'])
                 elif 'clear' in queueItem:
