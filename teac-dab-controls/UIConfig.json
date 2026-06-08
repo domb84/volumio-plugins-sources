@@ -229,7 +229,7 @@
       "element": "section",
       "label": "Configure Buttons (Capture)",
       "icon": "fa-magic",
-      "description": "Easiest way to set up buttons: click 'Configure' for a button, press that physical button on the unit, then press it again to confirm. The value above is filled in automatically and the controls restart. No need to read or type resistance values by hand.",
+      "description": "Easiest way to set up buttons: click 'Configure' for a button, press that physical button on the unit, then press it again to confirm. Configure as many buttons as you like, then click 'Save & Restart Controls' to apply them all at once. No need to read or type resistance values by hand.",
       "content": [
         {
           "id": "capture_btn_enter",
@@ -316,6 +316,17 @@
             "type": "controller",
             "endpoint": "user_interface/teac-dab-controls",
             "method": "captureBtnBack",
+            "data": []
+          }
+        },
+        {
+          "id": "capture_save",
+          "element": "button",
+          "label": "Save & Restart Controls",
+          "onClick": {
+            "type": "controller",
+            "endpoint": "user_interface/teac-dab-controls",
+            "method": "saveCapture",
             "data": []
           }
         }

@@ -293,10 +293,11 @@ teacdabcontrols.prototype.pollCapture = function () {
     if (cap.candidate.channel === ch && cap.candidate.value === val) {
         const configValue = ch + ', ' + val;
         self.config.set(cap.target, configValue);
+        if (!self._capturedValues) { self._capturedValues = {}; }
+        self._capturedValues[cap.label] = configValue;
         self.commandRouter.pushToastMessage('success', 'Button Capture',
-            '"' + cap.label + '" set to ' + configValue + '. Restarting controls...');
+            '"' + cap.label + '" set to ' + configValue + '. Configure more, then click "Save & Restart Controls" when done.');
         self.stopCapture();
-        self.onRestart();
     } else {
         cap.candidate = { channel: ch, value: val };
         self.commandRouter.pushToastMessage('info', 'Button Capture',
@@ -313,6 +314,30 @@ teacdabcontrols.prototype.stopCapture = function () {
     self._capture = null;
     try { fs.removeSync(CAPTURE_FLAG_PATH); } catch (e) {}
     try { fs.removeSync(CAPTURE_READING_PATH); } catch (e) {}
+};
+
+// Apply everything captured this session and restart the controls once.
+teacdabcontrols.prototype.saveCapture = function () {
+    const self = this;
+
+    self.stopCapture();   // cancel any capture still in progress
+
+    const captured = self._capturedValues || {};
+    const labels = Object.keys(captured);
+
+    if (labels.length === 0) {
+        self.commandRouter.pushToastMessage('info', 'Button Capture',
+            'No new button captures to save.');
+        return libQ.resolve();
+    }
+
+    const summary = labels.map(function (label) { return label + ' = ' + captured[label]; }).join(', ');
+    self.commandRouter.pushToastMessage('success', 'Button Capture',
+        'Saved (' + summary + '). Restarting controls...');
+
+    self._capturedValues = {};
+    self.onRestart();
+    return libQ.resolve();
 };
 
 // Plugin methods -----------------------------------------------------------------------------
