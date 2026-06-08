@@ -199,7 +199,7 @@ teacdabcontrols.prototype.getConfigurationFiles = function() {
 
 var CAPTURE_FLAG_PATH = '/tmp/teac-dab-controls-capture-on';
 var CAPTURE_READING_PATH = '/tmp/teac-dab-controls-capture.json';
-var CAPTURE_TIMEOUT_MS = 30000;
+var CAPTURE_IDLE_TIMEOUT_MS = 90000;  // auto-resume controls after this much inactivity
 var CAPTURE_POLL_MS = 200;
 
 // config key -> friendly label shown in toasts
@@ -228,41 +228,42 @@ teacdabcontrols.prototype.startCapture = function (targetKey) {
     const self = this;
     const label = CAPTURE_LABELS[targetKey] || targetKey;
 
-    // Cancel anything already running and clear stale readings.
-    self.stopCapture();
-
-    try {
-        fs.writeFileSync(CAPTURE_FLAG_PATH, '');
-    } catch (e) {
-        self.logger.error('Teac DAB Controls - could not start capture: ' + e);
-        self.commandRouter.pushToastMessage('error', 'Button Capture', 'Could not start capture mode.');
-        return libQ.resolve();
+    // Begin a capture session if one isn't already running. The session keeps
+    // the controls paused (via the flag file) until the user saves or goes
+    // idle, so button presses never reach the device while configuring.
+    if (!self._captureSession) {
+        try {
+            fs.writeFileSync(CAPTURE_FLAG_PATH, '');
+        } catch (e) {
+            self.logger.error('Teac DAB Controls - could not start capture: ' + e);
+            self.commandRouter.pushToastMessage('error', 'Button Capture', 'Could not start capture mode.');
+            return libQ.resolve();
+        }
+        try { fs.removeSync(CAPTURE_READING_PATH); } catch (e) {}
+        self._captureSession = { lastSeq: null };
+        self._captureTimer = setInterval(function () { self.pollCapture(); }, CAPTURE_POLL_MS);
     }
 
-    self._capture = {
-        target: targetKey,
-        label: label,
-        candidate: null,    // { channel, value } awaiting confirmation
-        lastSeq: null,
-        deadline: Date.now() + CAPTURE_TIMEOUT_MS
-    };
+    // (Re)target the session at the button the user just clicked.
+    self._captureSession.target = targetKey;
+    self._captureSession.label = label;
+    self._captureSession.candidate = null;
+    self._captureSession.deadline = Date.now() + CAPTURE_IDLE_TIMEOUT_MS;
 
     self.commandRouter.pushToastMessage('info', 'Button Capture',
-        'Press the "' + label + '" button on the unit...');
-
-    self._captureTimer = setInterval(function () { self.pollCapture(); }, CAPTURE_POLL_MS);
+        'Controls paused. Press the "' + label + '" button on the unit...');
     return libQ.resolve();
 };
 
 teacdabcontrols.prototype.pollCapture = function () {
     const self = this;
-    const cap = self._capture;
-    if (!cap) { self.stopCapture(); return; }
+    const session = self._captureSession;
+    if (!session) { self.endCaptureSession(); return; }
 
-    if (Date.now() > cap.deadline) {
-        self.commandRouter.pushToastMessage('warning', 'Button Capture',
-            'Timed out configuring "' + cap.label + '". Nothing was saved.');
-        self.stopCapture();
+    if (Date.now() > session.deadline) {
+        self.endCaptureSession();
+        self.commandRouter.pushToastMessage('info', 'Button Capture',
+            'Capture mode ended after inactivity. Controls resumed.');
         return;
     }
 
@@ -275,43 +276,48 @@ teacdabcontrols.prototype.pollCapture = function () {
     }
 
     if (reading == null || reading.seq == null) { return; }
-    if (reading.seq === cap.lastSeq) { return; }   // no new press since last poll
-    cap.lastSeq = reading.seq;
+    if (reading.seq === session.lastSeq) { return; }   // no new press since last poll
+    session.lastSeq = reading.seq;
+    session.deadline = Date.now() + CAPTURE_IDLE_TIMEOUT_MS;  // any press keeps the session alive
+
+    if (!session.target) { return; }   // a press arrived but no button is selected yet
 
     // Each new seq is one detected physical press (Python already filters out
     // the resting value and key-release).
     const ch = reading.channel;
     const val = reading.value;
 
-    if (cap.candidate == null) {
-        cap.candidate = { channel: ch, value: val };
+    if (session.candidate == null) {
+        session.candidate = { channel: ch, value: val };
         self.commandRouter.pushToastMessage('info', 'Button Capture',
-            'Read channel ' + ch + ', value ' + val + '. Press "' + cap.label + '" again to confirm.');
+            'Read channel ' + ch + ', value ' + val + '. Press "' + session.label + '" again to confirm.');
         return;
     }
 
-    if (cap.candidate.channel === ch && cap.candidate.value === val) {
+    if (session.candidate.channel === ch && session.candidate.value === val) {
         const configValue = ch + ', ' + val;
-        self.config.set(cap.target, configValue);
+        self.config.set(session.target, configValue);
         if (!self._capturedValues) { self._capturedValues = {}; }
-        self._capturedValues[cap.label] = configValue;
+        self._capturedValues[session.label] = configValue;
         self.commandRouter.pushToastMessage('success', 'Button Capture',
-            '"' + cap.label + '" set to ' + configValue + '. Configure more, then click "Save & Restart Controls" when done.');
-        self.stopCapture();
+            'Captured "' + session.label + '" = ' + configValue + '. Configure another button, or click "Save & Restart Controls".');
+        // Stay in the session (controls remain paused); wait for the next button.
+        session.target = null;
+        session.candidate = null;
     } else {
-        cap.candidate = { channel: ch, value: val };
+        session.candidate = { channel: ch, value: val };
         self.commandRouter.pushToastMessage('info', 'Button Capture',
-            'Got a different value (channel ' + ch + ', value ' + val + '). Press "' + cap.label + '" again to confirm.');
+            'Got a different value (channel ' + ch + ', value ' + val + '). Press "' + session.label + '" again to confirm.');
     }
 };
 
-teacdabcontrols.prototype.stopCapture = function () {
+teacdabcontrols.prototype.endCaptureSession = function () {
     const self = this;
     if (self._captureTimer) {
         clearInterval(self._captureTimer);
         self._captureTimer = null;
     }
-    self._capture = null;
+    self._captureSession = null;
     try { fs.removeSync(CAPTURE_FLAG_PATH); } catch (e) {}
     try { fs.removeSync(CAPTURE_READING_PATH); } catch (e) {}
 };
@@ -320,7 +326,7 @@ teacdabcontrols.prototype.stopCapture = function () {
 teacdabcontrols.prototype.saveCapture = function () {
     const self = this;
 
-    self.stopCapture();   // cancel any capture still in progress
+    self.endCaptureSession();   // resume controls
 
     const captured = self._capturedValues || {};
     const labels = Object.keys(captured);

@@ -57,6 +57,7 @@ class Controls:
         self._capture_baseline = {}      # channel -> resting (no-press) value
         self._capture_pressed = {}       # channel -> currently-pressed flag
         self._capture_was_on = False
+        self._capture_active = False     # cached flag read by the rotary callback
 
         self.rotary_encoder(config.encA, config.encB)
 
@@ -129,6 +130,7 @@ class Controls:
         elif not capture and self._capture_was_on:
             logger.info("Button capture mode disabled")
         self._capture_was_on = capture
+        self._capture_active = capture
         return capture
 
     def _handle_capture_reading(self, channel: int, value: int) -> None:
@@ -206,6 +208,11 @@ class Controls:
                 self.last_A = level
             else:
                 self.last_B = level
+
+            if self._capture_active:
+                # Controls are paused while the settings page is learning buttons.
+                self.last_gpio = gpio
+                return
 
             if gpio != self.last_gpio:  # debounce
                 self.last_gpio = gpio
