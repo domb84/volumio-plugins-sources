@@ -112,9 +112,9 @@
     {
       "id": "button_resistance",
       "element": "section",
-      "label": "Button Channel & Value",
-      "icon": "fa-cogs",
-      "description": "Set the channel (0 or 1) and value (0-24) that matches the value when the desired button is pressed via the ADC. Enter as channel, value. i.e. 0,12.",
+      "label": "Button Channel & Value (Advanced)",
+      "icon": "fa-sliders",
+      "description": "Advanced/manual setup. Most users should use 'Configure Buttons (Capture)' below instead. Turn on the switch to edit the raw channel/value mappings by hand. Enter as channel, value (e.g. 0, 12); a range like 0, 24-25 is also allowed.",
       "onSave": {
         "type": "controller",
         "endpoint":"user_interface/teac-dab-controls",
@@ -130,80 +130,194 @@
           "btn_info",
           "btn_favourite",
           "btn_main_menu",
+          "btn_back",
           "btn_no_press_channel1",
           "btn_no_press_channel2"
         ]
       },
       "content": [
         {
+          "id": "show_advanced_values",
+          "element": "switch",
+          "label": "Edit values manually",
+          "value": false
+        },
+        {
           "id": "btn_enter",
           "type":"text",
           "element": "input",
           "label": "Resistance value for Enter",
-          "value": ""
+          "value": "",
+          "visibleIf": { "field": "show_advanced_values", "value": true }
         },
         {
           "id": "btn_radio",
           "type":"text",
           "element": "input",
           "label": "Resistance value for Radio",
-          "value": ""
+          "value": "",
+          "visibleIf": { "field": "show_advanced_values", "value": true }
         },
         {
           "id": "btn_spotify",
           "type":"text",
           "element": "input",
           "label": "Resistance value for Spotify",
-          "value": ""
+          "value": "",
+          "visibleIf": { "field": "show_advanced_values", "value": true }
         },
         {
           "id": "btn_stop",
           "type":"text",
           "element": "input",
           "label": "Resistance value for Stop",
-          "value": ""
+          "value": "",
+          "visibleIf": { "field": "show_advanced_values", "value": true }
         },
         {
           "id": "btn_info",
           "type":"text",
           "element": "input",
           "label": "Resistance value for Info",
-          "value": ""
+          "value": "",
+          "visibleIf": { "field": "show_advanced_values", "value": true }
         },
         {
           "id": "btn_favourite",
           "type":"text",
           "element": "input",
           "label": "Resistance value for Favourite",
-          "value": ""
+          "value": "",
+          "visibleIf": { "field": "show_advanced_values", "value": true }
         },
         {
           "id": "btn_main_menu",
           "type":"text",
           "element": "input",
           "label": "Resistance value for Main Menu",
-          "value": ""
+          "value": "",
+          "visibleIf": { "field": "show_advanced_values", "value": true }
         },
         {
           "id": "btn_back",
           "type":"text",
           "element": "input",
           "label": "Resistance value for the Back button",
-          "value": ""
+          "value": "",
+          "visibleIf": { "field": "show_advanced_values", "value": true }
         },
         {
           "id": "btn_no_press_channel1",
           "type":"text",
           "element": "input",
           "label": "Resistance value when no button is pressed on channel 1",
-          "value": ""
+          "value": "",
+          "visibleIf": { "field": "show_advanced_values", "value": true }
         },
         {
           "id": "btn_no_press_channel2",
           "type":"text",
           "element": "input",
           "label": "Resistance value when no button is pressed on channel 2",
-          "value": ""
+          "value": "",
+          "visibleIf": { "field": "show_advanced_values", "value": true }
+        }
+      ]
+    },
+    {
+      "id": "button_capture",
+      "element": "section",
+      "label": "Configure Buttons (Capture)",
+      "icon": "fa-magic",
+      "description": "Easiest way to set up buttons: click 'Configure' for a button, press that physical button on the unit, then press it again to confirm. The value above is filled in automatically and the controls restart. No need to read or type resistance values by hand.",
+      "content": [
+        {
+          "id": "capture_btn_enter",
+          "element": "button",
+          "label": "Configure Enter",
+          "onClick": {
+            "type": "controller",
+            "endpoint": "user_interface/teac-dab-controls",
+            "method": "captureBtnEnter",
+            "data": []
+          }
+        },
+        {
+          "id": "capture_btn_radio",
+          "element": "button",
+          "label": "Configure Radio",
+          "onClick": {
+            "type": "controller",
+            "endpoint": "user_interface/teac-dab-controls",
+            "method": "captureBtnRadio",
+            "data": []
+          }
+        },
+        {
+          "id": "capture_btn_spotify",
+          "element": "button",
+          "label": "Configure Spotify",
+          "onClick": {
+            "type": "controller",
+            "endpoint": "user_interface/teac-dab-controls",
+            "method": "captureBtnSpotify",
+            "data": []
+          }
+        },
+        {
+          "id": "capture_btn_stop",
+          "element": "button",
+          "label": "Configure Stop",
+          "onClick": {
+            "type": "controller",
+            "endpoint": "user_interface/teac-dab-controls",
+            "method": "captureBtnStop",
+            "data": []
+          }
+        },
+        {
+          "id": "capture_btn_info",
+          "element": "button",
+          "label": "Configure Info",
+          "onClick": {
+            "type": "controller",
+            "endpoint": "user_interface/teac-dab-controls",
+            "method": "captureBtnInfo",
+            "data": []
+          }
+        },
+        {
+          "id": "capture_btn_favourite",
+          "element": "button",
+          "label": "Configure Favourite",
+          "onClick": {
+            "type": "controller",
+            "endpoint": "user_interface/teac-dab-controls",
+            "method": "captureBtnFavourite",
+            "data": []
+          }
+        },
+        {
+          "id": "capture_btn_main_menu",
+          "element": "button",
+          "label": "Configure Main Menu",
+          "onClick": {
+            "type": "controller",
+            "endpoint": "user_interface/teac-dab-controls",
+            "method": "captureBtnMainMenu",
+            "data": []
+          }
+        },
+        {
+          "id": "capture_btn_back",
+          "element": "button",
+          "label": "Configure Back",
+          "onClick": {
+            "type": "controller",
+            "endpoint": "user_interface/teac-dab-controls",
+            "method": "captureBtnBack",
+            "data": []
+          }
         }
       ]
     },

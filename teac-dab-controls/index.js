@@ -109,24 +109,26 @@ teacdabcontrols.prototype.getUIConfig = function() {
             uiconf.sections[0].content[8].value = self.config.get('button_poll_rate');
             uiconf.sections[0].content[9].value = self.config.get('button_debounce_rate');
             uiconf.sections[0].content[10].value = self.config.get('button_cooldown_rate');
-            uiconf.sections[1].content[0].value = self.config.get('btn_enter');
-            uiconf.sections[1].content[1].value = self.config.get('btn_radio');
-            uiconf.sections[1].content[2].value = self.config.get('btn_spotify');
-            uiconf.sections[1].content[3].value = self.config.get('btn_stop');
-            uiconf.sections[1].content[4].value = self.config.get('btn_info');
-            uiconf.sections[1].content[5].value = self.config.get('btn_favourite');
-            uiconf.sections[1].content[6].value = self.config.get('btn_main_menu');
-            uiconf.sections[1].content[7].value = self.config.get('btn_back');
-            uiconf.sections[1].content[8].value = self.config.get('btn_no_press_channel1');
-            uiconf.sections[1].content[9].value = self.config.get('btn_no_press_channel2');
-            uiconf.sections[2].content[0].value = self.config.get('rot_enc_A');
-            uiconf.sections[2].content[1].value = self.config.get('rot_enc_B');
-            uiconf.sections[3].content[0].value = self.config.get('lcd_rs');
-            uiconf.sections[3].content[1].value = self.config.get('lcd_e');
-            uiconf.sections[3].content[2].value = self.config.get('lcd_d4');
-            uiconf.sections[3].content[3].value = self.config.get('lcd_d5');
-            uiconf.sections[3].content[4].value = self.config.get('lcd_d6');
-            uiconf.sections[3].content[5].value = self.config.get('lcd_d7');
+            // sections[1].content[0] is the "Edit values manually" toggle
+            uiconf.sections[1].content[1].value = self.config.get('btn_enter');
+            uiconf.sections[1].content[2].value = self.config.get('btn_radio');
+            uiconf.sections[1].content[3].value = self.config.get('btn_spotify');
+            uiconf.sections[1].content[4].value = self.config.get('btn_stop');
+            uiconf.sections[1].content[5].value = self.config.get('btn_info');
+            uiconf.sections[1].content[6].value = self.config.get('btn_favourite');
+            uiconf.sections[1].content[7].value = self.config.get('btn_main_menu');
+            uiconf.sections[1].content[8].value = self.config.get('btn_back');
+            uiconf.sections[1].content[9].value = self.config.get('btn_no_press_channel1');
+            uiconf.sections[1].content[10].value = self.config.get('btn_no_press_channel2');
+            // sections[2] is "Configure Buttons (Capture)" — action buttons, no stored values
+            uiconf.sections[3].content[0].value = self.config.get('rot_enc_A');
+            uiconf.sections[3].content[1].value = self.config.get('rot_enc_B');
+            uiconf.sections[4].content[0].value = self.config.get('lcd_rs');
+            uiconf.sections[4].content[1].value = self.config.get('lcd_e');
+            uiconf.sections[4].content[2].value = self.config.get('lcd_d4');
+            uiconf.sections[4].content[3].value = self.config.get('lcd_d5');
+            uiconf.sections[4].content[4].value = self.config.get('lcd_d6');
+            uiconf.sections[4].content[5].value = self.config.get('lcd_d7');
             defer.resolve(uiconf);
         })
         .fail(function () {
@@ -192,6 +194,126 @@ teacdabcontrols.prototype.saveOptions = function (data) {
 teacdabcontrols.prototype.getConfigurationFiles = function() {
 	return ['config.json'];
 }
+
+// Button capture ("learn") -------------------------------------------------
+
+var CAPTURE_FLAG_PATH = '/tmp/teac-dab-controls-capture-on';
+var CAPTURE_READING_PATH = '/tmp/teac-dab-controls-capture.json';
+var CAPTURE_TIMEOUT_MS = 30000;
+var CAPTURE_POLL_MS = 200;
+
+// config key -> friendly label shown in toasts
+var CAPTURE_LABELS = {
+    btn_enter: 'Enter',
+    btn_radio: 'Radio',
+    btn_spotify: 'Spotify',
+    btn_stop: 'Stop',
+    btn_info: 'Info',
+    btn_favourite: 'Favourite',
+    btn_main_menu: 'Main Menu',
+    btn_back: 'Back'
+};
+
+// One entry point per button (UIConfig button onClick targets these by name)
+teacdabcontrols.prototype.captureBtnEnter = function () { return this.startCapture('btn_enter'); };
+teacdabcontrols.prototype.captureBtnRadio = function () { return this.startCapture('btn_radio'); };
+teacdabcontrols.prototype.captureBtnSpotify = function () { return this.startCapture('btn_spotify'); };
+teacdabcontrols.prototype.captureBtnStop = function () { return this.startCapture('btn_stop'); };
+teacdabcontrols.prototype.captureBtnInfo = function () { return this.startCapture('btn_info'); };
+teacdabcontrols.prototype.captureBtnFavourite = function () { return this.startCapture('btn_favourite'); };
+teacdabcontrols.prototype.captureBtnMainMenu = function () { return this.startCapture('btn_main_menu'); };
+teacdabcontrols.prototype.captureBtnBack = function () { return this.startCapture('btn_back'); };
+
+teacdabcontrols.prototype.startCapture = function (targetKey) {
+    const self = this;
+    const label = CAPTURE_LABELS[targetKey] || targetKey;
+
+    // Cancel anything already running and clear stale readings.
+    self.stopCapture();
+
+    try {
+        fs.writeFileSync(CAPTURE_FLAG_PATH, '');
+    } catch (e) {
+        self.logger.error('Teac DAB Controls - could not start capture: ' + e);
+        self.commandRouter.pushToastMessage('error', 'Button Capture', 'Could not start capture mode.');
+        return libQ.resolve();
+    }
+
+    self._capture = {
+        target: targetKey,
+        label: label,
+        candidate: null,    // { channel, value } awaiting confirmation
+        lastSeq: null,
+        deadline: Date.now() + CAPTURE_TIMEOUT_MS
+    };
+
+    self.commandRouter.pushToastMessage('info', 'Button Capture',
+        'Press the "' + label + '" button on the unit...');
+
+    self._captureTimer = setInterval(function () { self.pollCapture(); }, CAPTURE_POLL_MS);
+    return libQ.resolve();
+};
+
+teacdabcontrols.prototype.pollCapture = function () {
+    const self = this;
+    const cap = self._capture;
+    if (!cap) { self.stopCapture(); return; }
+
+    if (Date.now() > cap.deadline) {
+        self.commandRouter.pushToastMessage('warning', 'Button Capture',
+            'Timed out configuring "' + cap.label + '". Nothing was saved.');
+        self.stopCapture();
+        return;
+    }
+
+    let reading;
+    try {
+        if (!fs.existsSync(CAPTURE_READING_PATH)) { return; }
+        reading = fs.readJsonSync(CAPTURE_READING_PATH);
+    } catch (e) {
+        return;  // partial write; try again next tick
+    }
+
+    if (reading == null || reading.seq == null) { return; }
+    if (reading.seq === cap.lastSeq) { return; }   // no new press since last poll
+    cap.lastSeq = reading.seq;
+
+    // Each new seq is one detected physical press (Python already filters out
+    // the resting value and key-release).
+    const ch = reading.channel;
+    const val = reading.value;
+
+    if (cap.candidate == null) {
+        cap.candidate = { channel: ch, value: val };
+        self.commandRouter.pushToastMessage('info', 'Button Capture',
+            'Read channel ' + ch + ', value ' + val + '. Press "' + cap.label + '" again to confirm.');
+        return;
+    }
+
+    if (cap.candidate.channel === ch && cap.candidate.value === val) {
+        const configValue = ch + ', ' + val;
+        self.config.set(cap.target, configValue);
+        self.commandRouter.pushToastMessage('success', 'Button Capture',
+            '"' + cap.label + '" set to ' + configValue + '. Restarting controls...');
+        self.stopCapture();
+        self.onRestart();
+    } else {
+        cap.candidate = { channel: ch, value: val };
+        self.commandRouter.pushToastMessage('info', 'Button Capture',
+            'Got a different value (channel ' + ch + ', value ' + val + '). Press "' + cap.label + '" again to confirm.');
+    }
+};
+
+teacdabcontrols.prototype.stopCapture = function () {
+    const self = this;
+    if (self._captureTimer) {
+        clearInterval(self._captureTimer);
+        self._captureTimer = null;
+    }
+    self._capture = null;
+    try { fs.removeSync(CAPTURE_FLAG_PATH); } catch (e) {}
+    try { fs.removeSync(CAPTURE_READING_PATH); } catch (e) {}
+};
 
 // Plugin methods -----------------------------------------------------------------------------
 

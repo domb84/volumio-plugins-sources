@@ -2,6 +2,8 @@ import ctypes
 import RPi.GPIO as GPIO
 import pigpio
 import spidev
+import json
+import os
 import platform
 import threading
 import time
@@ -12,6 +14,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("Controls")
 from .utils import parse_button_config
+
+# Capture ("learn") mode: while the flag file exists the settings page is asking
+# us to report raw button readings instead of acting on them.
+CAPTURE_FLAG_PATH = "/tmp/teac-dab-controls-capture-on"
+CAPTURE_READING_PATH = "/tmp/teac-dab-controls-capture.json"
 
 @dataclass
 class ControlsConfig:
@@ -44,6 +51,12 @@ class Controls:
         self.config = config
         self.stop_event = stop_event
         self.pi = None
+
+        # Button capture ("learn") state, driven by the settings page
+        self._capture_seq = 0            # increments on each detected press event
+        self._capture_baseline = {}      # channel -> resting (no-press) value
+        self._capture_pressed = {}       # channel -> currently-pressed flag
+        self._capture_was_on = False
 
         self.rotary_encoder(config.encA, config.encB)
 
@@ -100,9 +113,62 @@ class Controls:
 
         return False, None
 
+    def _capture_enabled(self) -> bool:
+        try:
+            return os.path.exists(CAPTURE_FLAG_PATH)
+        except Exception:
+            return False
+
+    def _refresh_capture_state(self) -> bool:
+        """Return whether capture mode is active, resetting publish state on enable."""
+        capture = self._capture_enabled()
+        if capture and not self._capture_was_on:
+            self._capture_baseline = {}
+            self._capture_pressed = {}
+            logger.info("Button capture mode enabled")
+        elif not capture and self._capture_was_on:
+            logger.info("Button capture mode disabled")
+        self._capture_was_on = capture
+        return capture
+
+    def _handle_capture_reading(self, channel: int, value: int) -> None:
+        """Detect press events for the settings-page learn flow.
+
+        The first stable value seen on a channel is taken as its resting
+        (no-press) baseline. A press is any stable value differing from that
+        baseline; we publish once per press (on the resting->pressed edge) so the
+        settings page sees one event per physical press regardless of how often
+        it polls.
+        """
+        baseline = self._capture_baseline.get(channel)
+        if baseline is None:
+            self._capture_baseline[channel] = value
+            self._capture_pressed[channel] = False
+            return
+        if value == baseline:
+            self._capture_pressed[channel] = False  # released
+            return
+        if not self._capture_pressed.get(channel):
+            self._capture_pressed[channel] = True
+            self._capture_seq += 1
+            self._publish_capture_reading(channel, value, self._capture_seq)
+
+    def _publish_capture_reading(self, channel: int, value: int, seq: int) -> None:
+        """Publish a detected press so the settings page can learn a button value."""
+        try:
+            with open(CAPTURE_READING_PATH, "w") as handle:
+                json.dump({"channel": channel, "value": value, "seq": seq}, handle)
+        except Exception as e:
+            logger.debug("Could not publish capture reading: %s", e)
+
     def _process_readings(self, batch_data, channels, button_states, parsed_btns, parsed_skips,
-                          button_debounce_rate, button_cooldown_rate):
-        """Apply debounce/cooldown to a batch of ADC readings and emit button actions."""
+                          button_debounce_rate, button_cooldown_rate, capture=False):
+        """Apply debounce/cooldown to a batch of ADC readings and emit button actions.
+
+        In capture mode each distinct stable reading is published for the
+        settings page (so a button's value can be learned) and the normal action
+        is suppressed so pressing buttons doesn't navigate the menu.
+        """
         for data, channel in zip(batch_data, channels):
             data = self.normalize_value(data, 0, 1024, 32)
             state = button_states[channel]
@@ -112,6 +178,9 @@ class Controls:
                 state["stable_since"] = now
                 state["last_value"] = data
             elif now - (state["stable_since"] or 0) >= button_debounce_rate:
+                if capture:
+                    self._handle_capture_reading(channel, data)
+                    continue
                 if now - state["last_sent"] < button_cooldown_rate:
                     continue
                 logger.debug(f"Channel {channel} stable value: {data}")
@@ -216,7 +285,8 @@ class Controls:
                 batch_data.append(read_mcp3008(channel))
 
             self._process_readings(batch_data, channels, button_states, parsed_btns, parsed_skips,
-                                   button_debounce_rate, button_cooldown_rate)
+                                   button_debounce_rate, button_cooldown_rate,
+                                   capture=self._refresh_capture_state())
 
             time.sleep(button_poll_rate)
 
@@ -262,7 +332,8 @@ class Controls:
             batch_data = _read_all_channels_spi(channels)
 
             self._process_readings(batch_data, channels, button_states, parsed_btns, parsed_skips,
-                                   button_debounce_rate, button_cooldown_rate)
+                                   button_debounce_rate, button_cooldown_rate,
+                                   capture=self._refresh_capture_state())
 
             time.sleep(button_poll_rate)
 
