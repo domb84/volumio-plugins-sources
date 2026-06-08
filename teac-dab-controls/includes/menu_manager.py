@@ -3,6 +3,7 @@ import logging
 import os
 import platform
 import queue
+import subprocess
 import threading
 from collections import deque
 from datetime import datetime
@@ -128,6 +129,7 @@ class MenuManager:
 
         # cleanup on exit
         logger.info('Menu manager stopping')
+        self._show_shutdown_message()
 
 
     def remember(self) -> None:
@@ -195,6 +197,43 @@ class MenuManager:
         if self._suppressed_info is not None:
             info, self._suppressed_info = self._suppressed_info, None
             self.show_track_info(info)
+
+    @staticmethod
+    def _system_is_shutting_down() -> bool:
+        """True only when the whole device is powering off or rebooting.
+
+        Distinguishes a real shutdown from an ordinary service restart (e.g.
+        after saving button config) so the shutdown screen doesn't flash on
+        every restart.
+        """
+        try:
+            result = subprocess.run(
+                ["systemctl", "is-system-running"],
+                capture_output=True, text=True, timeout=2,
+            )
+            return (result.stdout or "").strip() == "stopping"
+        except Exception:
+            return False
+
+    def _show_shutdown_message(self) -> None:
+        """On a real shutdown, show a message then blank the LCD.
+
+        Done synchronously (no timers, which get killed as the process exits).
+        """
+        if self.menu is None or not self._system_is_shutting_down():
+            return
+        try:
+            # Stop any pending timers from drawing over the shutdown screen.
+            self._cancel_pending_render()
+            if self._info_release_timer is not None:
+                self._info_release_timer.cancel()
+                self._info_release_timer = None
+
+            self.menu.message("Shutting down...".upper())
+            sleep(1.5)
+            self.menu.clearDisplay()
+        except Exception as e:
+            logger.error("Failed to show shutdown message: %s", e)
 
     def _schedule_deferred(self, callback, delay: float = 2.0) -> None:
         """Schedule a deferred LCD action (render or clear) without blocking the queue thread."""
