@@ -297,7 +297,7 @@ class MenuManager:
             input_data = json.loads(payload)
 
             for i in input_data:
-                logger.debug("Track info input: " + str(i))
+                logger.debug("Track info input: %s", i)
                 
                 if i['status'] in statusSymbols:
                     status = statusSymbols[i['status']]
@@ -415,7 +415,7 @@ class MenuManager:
                 if buttonService:
                             menuItem = FunctionItem(buttonName, self.resolve_item, [counter, buttonName, buttonLink, buttonService])
                 # genres in webradio do not seem to return it's service type, so capture this and resolve
-                elif not buttonService and re.match('radio(\/.+)?', buttonLink):
+                elif not buttonService and re.match(r'radio(/.+)?', buttonLink):
                     menuItem = FunctionItem(buttonName, self.resolve_item, [counter, buttonName, buttonLink, 'webradio'])
                 else:
                     menuItem = FunctionItem(buttonName, self.resolve_item, [counter, buttonName, buttonLink, None])

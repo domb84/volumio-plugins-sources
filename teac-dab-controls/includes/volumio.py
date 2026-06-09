@@ -166,19 +166,18 @@ class Volumio:
             title = toast.get('title', None)
             message = toast.get('message', None)
 
-            toast_list = list()
-            toast_list.append({
+            toast_list = [{
                 'type': type,
                 'title': title,
                 'message': message
-            })
+            }]
             logger.debug("Toast: %s", toast_list)
             result = json.dumps(toast_list)
             logger.debug("Toast as json: %s", result)
             self.menuManagerQ.put({'message':result})
 
         except Exception as e:
-            logger.error("Failed to processes incoming toast: " + str(e))
+            logger.error("Failed to processes incoming toast: %s", e)
 
     def _on_response(self, *args):
         logger.debug("%s", args)
@@ -250,10 +249,13 @@ class Volumio:
                 self.menuManagerQ.put({'message': message})
 
             else:
-                # Deduplication: extract core content fields for comparison
+                # Deduplicate on the track text only (audio fields excluded) so a
+                # radio station re-sending the same track every few seconds — even
+                # with a jittering bitrate — doesn't re-render and restart the LCD
+                # scroll. The info button bypasses this via the force flag.
                 core_state = (status, title, artist, album, uri, service)
 
-                # Check if core content has changed (wire format is a list of one)
+                # wire format is a list of one
                 result = json.dumps([clean_state])
                 if force:
                     # Explicit info request — always show, even if unchanged.
@@ -264,20 +266,21 @@ class Volumio:
                     self.last_core_state = core_state
                     logger.debug("State changed: %s", core_state)
                     self._schedule_info_update(result)
-                elif any([bitrate, samplerate, bitdepth, channels]):
-                    # Audio info arrived after the initial update — replace the pending
-                    # display or send immediately if the window already closed
-                    logger.debug("Audio info now available: bitrate=%s, samplerate=%s", bitrate, samplerate)
-                    self._schedule_info_update(result)
                 else:
-                    logger.debug("Duplicate state skipped: %s", core_state)
+                    # Same track. Only refresh an update that's still pending (not
+                    # yet shown) so late-arriving audio details are folded into the
+                    # first render; once it has displayed, skip — a radio re-send
+                    # must not restart the scroll.
+                    logger.debug("Duplicate state; refreshing only if still pending")
+                    self._schedule_info_update(result, only_if_pending=True)
 
 
         except Exception as e:
-            logger.error("Failed to processes incoming state: " + str(e))
+            logger.error("Failed to processes incoming state: %s", e)
             
 
-    def _schedule_info_update(self, result: str, immediate: bool = False) -> None:
+    def _schedule_info_update(self, result: str, immediate: bool = False,
+                              only_if_pending: bool = False) -> None:
         """Debounce rapid successive pushState calls for the same track.
 
         Volumio often sends an initial state without audio details followed
@@ -288,8 +291,15 @@ class Volumio:
         When ``immediate`` is set (an explicit info-button request) the update
         is sent straight away with a ``force`` flag so the menu manager shows
         it without its scroll-idle deferral.
+
+        When ``only_if_pending`` is set the update is applied only if an earlier
+        update is still waiting to be shown — used to fold late-arriving audio
+        details into a not-yet-displayed message without re-rendering one that is
+        already on screen (which would restart its scroll).
         """
         with self._pending_info_lock:
+            if only_if_pending and self._pending_info_timer is None:
+                return
             if self._pending_info_timer is not None:
                 self._pending_info_timer.cancel()
                 self._pending_info_timer = None
@@ -394,7 +404,7 @@ class Volumio:
         elif self.SPOTIFY_TRACK_REGEX.match(uri):
             self._send('addPlay', {'status':'play', 'service':'spotify', 'uri':uri})
         else:
-            logger.debug("URi does not match webradio or spotify: " + str(uri))
+            logger.debug("URi does not match webradio or spotify: %s", uri)
 
 
     def stop(self) -> None:
