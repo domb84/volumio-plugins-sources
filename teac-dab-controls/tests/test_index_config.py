@@ -32,6 +32,18 @@ def test_load_button_config():
     assert result["btn_enter"] == ("0", "12")
 
 
+def test_load_button_config_omits_remove_favourite_when_absent():
+    cfg = {key: {"value": "0,12"} for key in _BUTTON_KEYS}
+    assert "btn_remove_favourite" not in index.load_button_config(cfg)
+
+
+def test_load_button_config_includes_remove_favourite_when_present():
+    cfg = {key: {"value": "0,12"} for key in _BUTTON_KEYS}
+    cfg["btn_remove_favourite"] = {"value": "0,20"}
+    result = index.load_button_config(cfg)
+    assert result["btn_remove_favourite"] == ("0", "20")
+
+
 def test_load_button_skip_config():
     cfg = {
         "btn_no_press_channel1": {"value": "0,16"},

@@ -1,4 +1,5 @@
 """Tests for includes/volumio.py: URI regexes, pushState dedup, debounce guard."""
+import json
 import queue
 import threading
 from unittest.mock import Mock
@@ -110,3 +111,35 @@ class TestScheduleOnlyIfPending:
         finally:
             if v._pending_info_timer is not None:
                 v._pending_info_timer.cancel()
+
+
+class TestFavourites:
+    def _volumio(self):
+        v = Volumio.__new__(Volumio)
+        v.add_favourite = Mock()
+        v.remove_favourite = Mock()
+        return v
+
+    def test_memory_item_adds_favourite(self):
+        v = self._volumio()
+        v._process_memory_item({"memory": json.dumps({"title": "T", "uri": "U", "service": "S"})})
+        v.add_favourite.assert_called_once_with("T", "U", "S")
+        v.remove_favourite.assert_not_called()
+
+    def test_remove_favourite_item_removes(self):
+        v = self._volumio()
+        v._process_remove_favourite_item({"remove_favourite": json.dumps(
+            {"title": "T", "uri": "U", "service": "S"})})
+        v.remove_favourite.assert_called_once_with("T", "U", "S")
+        v.add_favourite.assert_not_called()
+
+    def test_invalid_payload_is_ignored(self):
+        v = self._volumio()
+        v._process_remove_favourite_item({"remove_favourite": "{not valid json"})
+        v.remove_favourite.assert_not_called()
+
+    def test_queue_routes_remove_favourite(self):
+        v = self._volumio()
+        v._process_remove_favourite_item = Mock()
+        v._process_queue_item({"remove_favourite": "x"})
+        v._process_remove_favourite_item.assert_called_once()

@@ -99,6 +99,10 @@
         "type": "text",
         "value": "0, 23"
     },
+    "btn_remove_favourite": {
+        "type": "text",
+        "value": ""
+    },
     "btn_main_menu": {
         "type": "text",
         "value": "0, 28"

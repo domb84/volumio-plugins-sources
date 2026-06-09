@@ -90,6 +90,8 @@ class Volumio:
             self._process_button_item(item['button'])
         elif 'memory' in item:
             self._process_memory_item(item)
+        elif 'remove_favourite' in item:
+            self._process_remove_favourite_item(item)
         else:
             logger.warning("Queue item did not match filter: %s", item)
 
@@ -129,22 +131,25 @@ class Volumio:
 
         logger.warning("Unhandled button item: %s", button)
 
-    def _process_memory_item(self, item):
+    def _parse_favourite(self, raw):
+        """Parse a {title, uri, service} JSON payload into a tuple, or None."""
         try:
-            payload = json.loads(item['memory'])
+            payload = json.loads(raw)
         except json.JSONDecodeError as e:
-            logger.error("Invalid memory payload: %s", e)
-            return
-
+            logger.error("Invalid favourite payload: %s", e)
+            return None
         logger.debug("%s", payload)
-        title = payload.get('title')
-        uri = payload.get('uri')
-        service = payload.get('service')
+        return payload.get('title'), payload.get('uri'), payload.get('service')
 
-        # TODO: search to see if it's already been added and remove in that instance
-        # self.search(title, uri, service)
-        # self.remove_favourite(title, uri, service)
-        self.add_favourite(title, uri, service)
+    def _process_memory_item(self, item):
+        parsed = self._parse_favourite(item['memory'])
+        if parsed is not None:
+            self.add_favourite(*parsed)
+
+    def _process_remove_favourite_item(self, item):
+        parsed = self._parse_favourite(item['remove_favourite'])
+        if parsed is not None:
+            self.remove_favourite(*parsed)
 
     def _send(self, command, args=None, callback=None, namespace=None):
         self.sio.emit(command, args, callback=callback, namespace=namespace)

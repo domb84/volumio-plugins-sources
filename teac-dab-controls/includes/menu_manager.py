@@ -61,6 +61,7 @@ class MenuManager:
             'btn_info': lambda: self.volumioQ.put({'show': 'info'}),
             'btn_spotify': lambda: self.volumioQ.put({'button': 'spotify'}),
             'btn_favourite': self.add_favorite,
+            'btn_remove_favourite': self.remove_favorite,
             'btn_back': lambda: self.menuManagerQ.put({'menu': self.go_back(), 'remember':False})
         }
 
@@ -158,28 +159,31 @@ class MenuManager:
             return self.last_10_items.popleft()
         return None
 
+    def _selected_favourite(self) -> Optional[str]:
+        """Return JSON {title, uri, service} for the highlighted menu item.
+
+        The args are [position, name, uri, service] as built in build_menu.
+        Returns None if there's no selectable item.
+        """
+        try:
+            args = self.menu.items[self.menu.current_option].__getattribute__('args')
+        except (AttributeError, IndexError) as e:
+            logger.error("No selectable item for favourite action: %s", e)
+            return None
+
+        favourite = {'title': args[1], 'uri': args[2], 'service': args[3]}
+        logger.debug("Selected favourite: %s", favourite)
+        return json.dumps(favourite)
+
     def add_favorite(self) -> None:
-        # get the arguments sent to the menu item (menu name, link to item and service type etc)
+        favourite = self._selected_favourite()
+        if favourite is not None:
+            self.volumioQ.put({'memory': favourite})
 
-        args = self.menu.items[self.menu.current_option].__getattribute__('args')
-        menuItem = args[0]
-        menuName = args[1]
-        menuLink = args[2]
-        menuService = args[3]
-
-        # logging
-        logger.debug("Menu item: %s", menuItem)
-        logger.debug("Menu item name: %s", menuName)
-        logger.debug("Menu item link: %s", menuLink)
-        logger.debug("Menu item service: %s", menuService)
-
-        # create required json
-        favourite = {'title': menuName, 'uri': menuLink, 'service': menuService}
-        logger.debug(favourite)
-        favourite = json.dumps(favourite)
-
-        # send to queue to create favourite
-        self.volumioQ.put({'memory':favourite})
+    def remove_favorite(self) -> None:
+        favourite = self._selected_favourite()
+        if favourite is not None:
+            self.volumioQ.put({'remove_favourite': favourite})
 
 
     def _defer_info(self, info: str) -> None:

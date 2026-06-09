@@ -132,7 +132,8 @@
           "btn_main_menu",
           "btn_back",
           "btn_no_press_channel1",
-          "btn_no_press_channel2"
+          "btn_no_press_channel2",
+          "btn_remove_favourite"
         ]
       },
       "content": [
@@ -221,6 +222,14 @@
           "label": "Resistance value when no button is pressed on channel 2",
           "value": "",
           "visibleIf": { "field": "show_advanced_values", "value": true }
+        },
+        {
+          "id": "btn_remove_favourite",
+          "type":"text",
+          "element": "input",
+          "label": "Resistance value for Remove Favourite",
+          "value": "",
+          "visibleIf": { "field": "show_advanced_values", "value": true }
         }
       ]
     },
@@ -294,6 +303,17 @@
             "type": "controller",
             "endpoint": "user_interface/teac-dab-controls",
             "method": "captureBtnFavourite",
+            "data": []
+          }
+        },
+        {
+          "id": "capture_btn_remove_favourite",
+          "element": "button",
+          "label": "Configure Remove Favourite",
+          "onClick": {
+            "type": "controller",
+            "endpoint": "user_interface/teac-dab-controls",
+            "method": "captureBtnRemoveFavourite",
             "data": []
           }
         },

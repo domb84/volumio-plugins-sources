@@ -41,7 +41,7 @@ def parse_button_mapping(value: str) -> Tuple[str, ...]:
 
 
 def load_button_config(config_data: Dict[str, Any]) -> Dict[str, Tuple[str, ...]]:
-    return {
+    config = {
         "btn_enter": parse_button_mapping(config_data["btn_enter"]["value"]),
         "btn_radio": parse_button_mapping(config_data["btn_radio"]["value"]),
         "btn_spotify": parse_button_mapping(config_data["btn_spotify"]["value"]),
@@ -51,6 +51,10 @@ def load_button_config(config_data: Dict[str, Any]) -> Dict[str, Tuple[str, ...]
         "btn_main_menu": parse_button_mapping(config_data["btn_main_menu"]["value"]),
         "btn_back": parse_button_mapping(config_data["btn_back"]["value"]),
     }
+    # Optional so existing configs without the key keep working.
+    if "btn_remove_favourite" in config_data:
+        config["btn_remove_favourite"] = parse_button_mapping(config_data["btn_remove_favourite"]["value"])
+    return config
 
 
 def load_button_skip_config(config_data: Dict[str, Any]) -> Dict[str, Tuple[str, ...]]:

@@ -102,6 +102,7 @@ teacdabcontrols.prototype.getUIConfig = function() {
             uiconf.sections[1].content[8].value = self.config.get('btn_back');
             uiconf.sections[1].content[9].value = self.config.get('btn_no_press_channel1');
             uiconf.sections[1].content[10].value = self.config.get('btn_no_press_channel2');
+            uiconf.sections[1].content[11].value = self.config.get('btn_remove_favourite');
             // sections[2] is "Configure Buttons (Capture)" — action buttons, no stored values
             uiconf.sections[3].content[0].value = self.config.get('rot_enc_A');
             uiconf.sections[3].content[1].value = self.config.get('rot_enc_B');
@@ -192,6 +193,7 @@ var CAPTURE_LABELS = {
     btn_stop: 'Stop',
     btn_info: 'Info',
     btn_favourite: 'Favourite',
+    btn_remove_favourite: 'Remove Favourite',
     btn_main_menu: 'Main Menu',
     btn_back: 'Back'
 };
@@ -203,6 +205,7 @@ teacdabcontrols.prototype.captureBtnSpotify = function () { return this.startCap
 teacdabcontrols.prototype.captureBtnStop = function () { return this.startCapture('btn_stop'); };
 teacdabcontrols.prototype.captureBtnInfo = function () { return this.startCapture('btn_info'); };
 teacdabcontrols.prototype.captureBtnFavourite = function () { return this.startCapture('btn_favourite'); };
+teacdabcontrols.prototype.captureBtnRemoveFavourite = function () { return this.startCapture('btn_remove_favourite'); };
 teacdabcontrols.prototype.captureBtnMainMenu = function () { return this.startCapture('btn_main_menu'); };
 teacdabcontrols.prototype.captureBtnBack = function () { return this.startCapture('btn_back'); };
 
